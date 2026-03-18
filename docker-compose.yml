@@ -24,6 +24,7 @@ services:
       - AGENT_DISPATCH_URL=${AGENT_DISPATCH_URL:-}
       - AGENT_CALLBACK_URL=${AGENT_CALLBACK_URL:-}
       - AGENT_CALLBACK_SECRET=${AGENT_CALLBACK_SECRET}
+      - GITHUB_TOKEN_ENCRYPTION_KEY=${GITHUB_TOKEN_ENCRYPTION_KEY}
     volumes:
       - uploads:/app/uploads
     networks:

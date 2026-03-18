@@ -29,6 +29,14 @@ export default async function SettingsPage() {
           <h3 className="font-semibold text-gray-900 mb-1">API Keys</h3>
           <p className="text-sm text-gray-500">Manage API keys for n8n and external integrations</p>
         </Link>
+
+        <Link
+          href="/settings/github"
+          className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-sm transition-shadow"
+        >
+          <h3 className="font-semibold text-gray-900 mb-1">GitHub Connections</h3>
+          <p className="text-sm text-gray-500">Link GitHub repositories and manage access tokens</p>
+        </Link>
       </div>
     </div>
   )

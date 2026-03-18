@@ -579,17 +579,19 @@ model TicketWikiLink {
 // One record per owner/repo pair. Created by an admin via the settings page.
 // Uses installationId for GitHub App auth or a service-account reference.
 model GitHubConnection {
-  id             String   @id @default(cuid())
-  provider       String   @default("github")
-  installationId String?  // GitHub App installation ID (set if using GitHub App)
-  owner          String   // e.g. "webvakwerk"
-  repo           String   // e.g. "site-klant"
-  defaultBranch  String   @default("main")
-  isActive       Boolean  @default(true)
+  id             String    @id @default(cuid())
+  provider       String    @default("github")
+  installationId String?   // GitHub App installation ID (set if using GitHub App)
+  owner          String    // e.g. "webvakwerk"
+  repo           String    // e.g. "site-klant"
+  defaultBranch  String    @default("main")
+  encryptedToken String?   // AES-256-GCM encrypted PAT (null = no token stored)
+  tokenSetAt     DateTime? // when token was last updated
+  isActive       Boolean   @default(true)
   createdById    String
-  createdBy      User     @relation("GitHubConnectionCreator", fields: [createdById], references: [id])
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdBy      User      @relation("GitHubConnectionCreator", fields: [createdById], references: [id])
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   repositoryLinks TicketRepositoryLink[]
 
