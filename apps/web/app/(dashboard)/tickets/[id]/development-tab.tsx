@@ -79,7 +79,10 @@ export default async function DevelopmentTab({ ticketId }: { ticketId: string })
       include: {
         startedBy: { select: { name: true } },
         repositoryLink: {
-          include: { githubConnection: { select: { owner: true, repo: true } } },
+          select: {
+            repoName: true,
+            githubConnection: { select: { owner: true, repo: true } },
+          },
         },
       },
     }),
@@ -114,6 +117,9 @@ export default async function DevelopmentTab({ ticketId }: { ticketId: string })
           <div className="divide-y divide-gray-50">
             {repoLinks.map((link) => {
               const { owner, repo, defaultBranch } = link.githubConnection
+              // For org-level connections (repo="*"), use repoName from the link
+              const effectiveRepo = repo === '*' ? (link.repoName ?? '') : repo
+              const isOrg = repo === '*'
               return (
                 <div key={link.id} className="px-5 py-4">
                   {/* Repo header */}
@@ -124,23 +130,30 @@ export default async function DevelopmentTab({ ticketId }: { ticketId: string })
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <a
-                          href={githubRepoUrl(owner, repo)}
+                          href={effectiveRepo ? githubRepoUrl(owner, effectiveRepo) : `https://github.com/${owner}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-sm font-semibold text-blue-600 hover:underline"
                         >
-                          {owner}/{repo}
+                          {effectiveRepo ? `${owner}/${effectiveRepo}` : owner}
                         </a>
-                        <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">
-                          {defaultBranch}
-                        </span>
+                        {isOrg && (
+                          <span className="text-xs text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
+                            org-token
+                          </span>
+                        )}
+                        {!isOrg && (
+                          <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">
+                            {defaultBranch}
+                          </span>
+                        )}
                       </div>
 
                       {/* Dev links */}
                       <div className="mt-2 flex flex-wrap gap-3">
-                        {link.linkedBranch && (
+                        {link.linkedBranch && effectiveRepo && (
                           <a
-                            href={githubBranchUrl(owner, repo, link.linkedBranch)}
+                            href={githubBranchUrl(owner, effectiveRepo, link.linkedBranch)}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-1 text-xs text-gray-600 hover:text-blue-600"
@@ -149,9 +162,9 @@ export default async function DevelopmentTab({ ticketId }: { ticketId: string })
                             <span className="font-mono">{link.linkedBranch}</span>
                           </a>
                         )}
-                        {link.linkedIssueNumber && (
+                        {link.linkedIssueNumber && effectiveRepo && (
                           <a
-                            href={githubIssueUrl(owner, repo, link.linkedIssueNumber)}
+                            href={githubIssueUrl(owner, effectiveRepo, link.linkedIssueNumber)}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-1 text-xs text-gray-600 hover:text-blue-600"
@@ -160,9 +173,9 @@ export default async function DevelopmentTab({ ticketId }: { ticketId: string })
                             <span>#{link.linkedIssueNumber}</span>
                           </a>
                         )}
-                        {link.linkedPullRequestNumber && (
+                        {link.linkedPullRequestNumber && effectiveRepo && (
                           <a
-                            href={githubPrUrl(owner, repo, link.linkedPullRequestNumber)}
+                            href={githubPrUrl(owner, effectiveRepo, link.linkedPullRequestNumber)}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-1 text-xs text-gray-600 hover:text-blue-600"
@@ -229,6 +242,9 @@ export default async function DevelopmentTab({ ticketId }: { ticketId: string })
           <div className="divide-y divide-gray-50">
             {agentRuns.map((run) => {
               const { owner, repo } = run.repositoryLink.githubConnection
+              const effectiveRunRepo = repo === '*'
+                ? (run.repositoryLink.repoName ?? '')
+                : repo
               const outputData = run.outputData as Record<string, unknown> | null
               return (
                 <div key={run.id} className="px-5 py-4">
@@ -243,7 +259,7 @@ export default async function DevelopmentTab({ ticketId }: { ticketId: string })
                           {run.status}
                         </span>
                         <span className="text-xs text-gray-400 font-mono">
-                          {owner}/{repo}
+                          {effectiveRunRepo ? `${owner}/${effectiveRunRepo}` : owner}
                         </span>
                       </div>
 

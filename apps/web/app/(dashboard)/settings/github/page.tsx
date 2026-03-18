@@ -25,6 +25,7 @@ export default function GitHubSettingsPage() {
   // New connection form
   const [owner, setOwner] = useState('')
   const [repo, setRepo] = useState('')
+  const [orgLevel, setOrgLevel] = useState(false)
   const [branch, setBranch] = useState('main')
   const [token, setToken] = useState('')
   const [showToken, setShowToken] = useState(false)
@@ -58,14 +59,19 @@ export default function GitHubSettingsPage() {
       const res = await fetch('/api/v1/github/connections', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ owner, repo, defaultBranch: branch, token: token || undefined }),
+        body: JSON.stringify({
+          owner,
+          repo: orgLevel ? '*' : repo,
+          defaultBranch: branch,
+          token: token || undefined,
+        }),
       })
       const data = await res.json()
       if (!res.ok) {
         setError(data.error ?? 'Failed to create connection')
         return
       }
-      setOwner(''); setRepo(''); setBranch('main'); setToken('')
+      setOwner(''); setRepo(''); setBranch('main'); setToken(''); setOrgLevel(false)
       setShowForm(false)
       fetchConnections()
     } finally {
@@ -148,9 +154,29 @@ export default function GitHubSettingsPage() {
         <div className="bg-white rounded-xl border border-gray-200 p-5">
           <h3 className="font-semibold text-gray-900 mb-4">Add GitHub Repository</h3>
           <form onSubmit={handleCreate} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            {/* Org-level toggle */}
+            <label className="flex items-center gap-3 cursor-pointer select-none">
+              <div
+                onClick={() => setOrgLevel(!orgLevel)}
+                className={`relative w-10 h-5 rounded-full transition-colors ${orgLevel ? 'bg-blue-600' : 'bg-gray-300'}`}
+              >
+                <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${orgLevel ? 'translate-x-5' : ''}`} />
+              </div>
+              <span className="text-sm font-medium text-gray-700">
+                Alle repositories in de organisatie
+              </span>
+            </label>
+            {orgLevel && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-xs text-blue-700">
+                Één token voor alle repos. Maak een fine-grained PAT aan met <strong>Resource owner: je organisatie</strong> en <strong>Repository access: All repositories</strong>.
+              </div>
+            )}
+
+            <div className={`grid gap-4 ${orgLevel ? 'grid-cols-1' : 'grid-cols-2'}`}>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Owner</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {orgLevel ? 'Organisatie (GitHub username/org)' : 'Owner'}
+                </label>
                 <input
                   type="text"
                   value={owner}
@@ -160,17 +186,19 @@ export default function GitHubSettingsPage() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Repository</label>
-                <input
-                  type="text"
-                  value={repo}
-                  onChange={(e) => setRepo(e.target.value)}
-                  required
-                  placeholder="e.g. my-project"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
+              {!orgLevel && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Repository</label>
+                  <input
+                    type="text"
+                    value={repo}
+                    onChange={(e) => setRepo(e.target.value)}
+                    required
+                    placeholder="e.g. my-project"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Default Branch</label>
@@ -311,10 +339,18 @@ export default function GitHubSettingsPage() {
                         <svg className="w-4 h-4 text-gray-700" fill="currentColor" viewBox="0 0 16 16">
                           <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
                         </svg>
-                        <span className="font-semibold text-gray-900">{conn.owner}/{conn.repo}</span>
-                        <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded font-mono">
-                          {conn.defaultBranch}
+                        <span className="font-semibold text-gray-900">
+                          {conn.repo === '*' ? conn.owner : `${conn.owner}/${conn.repo}`}
                         </span>
+                        {conn.repo === '*' ? (
+                          <span className="text-xs text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded font-medium">
+                            alle repos
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded font-mono">
+                            {conn.defaultBranch}
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-center gap-3 text-xs text-gray-500 mt-1">
                         {conn.tokenSetAt ? (

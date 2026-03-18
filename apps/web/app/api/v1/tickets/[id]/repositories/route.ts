@@ -12,13 +12,16 @@ import {
 } from '@/lib/api-helpers'
 import { logActivity } from '@/lib/audit'
 import { createTimelineEntry } from '@/lib/timeline'
+import { isOrgLevel, resolveRepoName } from '@/lib/github-token'
 
 const LinkRepoSchema = z.object({
-  githubConnectionId:     z.string().min(1),
-  linkedBranch:           z.string().max(255).optional(),
-  linkedIssueNumber:      z.number().int().positive().optional(),
+  githubConnectionId:      z.string().min(1),
+  // required when the connection is org-level (repo = "*")
+  repoName:                z.string().min(1).max(100).regex(/^[a-zA-Z0-9_.-]+$/).optional(),
+  linkedBranch:            z.string().max(255).optional(),
+  linkedIssueNumber:       z.number().int().positive().optional(),
   linkedPullRequestNumber: z.number().int().positive().optional(),
-  environmentUrl:         z.string().url().optional(),
+  environmentUrl:          z.string().url().optional(),
 })
 
 type Params = { params: Promise<{ id: string }> }
@@ -67,31 +70,36 @@ export const POST = withErrorHandler(async (req: NextRequest, { params }: Params
   const body = await parseBody(req, LinkRepoSchema)
   if (body instanceof Response) return body
 
-  // Verify the connection exists and is active.
   const connection = await db.gitHubConnection.findUnique({
     where: { id: body.githubConnectionId, isActive: true },
   })
   if (!connection) return notFound('GitHub connection not found or inactive')
 
-  // Enforce one link per ticket+repo pair.
+  // Org-level connections require repoName to know which repo this link is for.
+  if (isOrgLevel(connection.repo) && !body.repoName) {
+    return badRequest('repoName is required when using an org-level connection')
+  }
+
+  const effectiveRepo = resolveRepoName(connection.repo, body.repoName)
+
   const existing = await db.ticketRepositoryLink.findUnique({
     where: {
-      ticketId_githubConnectionId: {
-        ticketId,
-        githubConnectionId: body.githubConnectionId,
-      },
+      ticketId_githubConnectionId: { ticketId, githubConnectionId: body.githubConnectionId },
     },
   })
-  if (existing) return conflict(`Repo ${connection.owner}/${connection.repo} is already linked to this ticket`)
+  if (existing) {
+    return conflict(`${connection.owner}/${effectiveRepo} is already linked to this ticket`)
+  }
 
   const link = await db.ticketRepositoryLink.create({
     data: {
       ticketId,
       githubConnectionId: body.githubConnectionId,
-      linkedBranch:           body.linkedBranch ?? null,
-      linkedIssueNumber:      body.linkedIssueNumber ?? null,
+      repoName:                body.repoName ?? null,
+      linkedBranch:            body.linkedBranch ?? null,
+      linkedIssueNumber:       body.linkedIssueNumber ?? null,
       linkedPullRequestNumber: body.linkedPullRequestNumber ?? null,
-      environmentUrl:         body.environmentUrl ?? null,
+      environmentUrl:          body.environmentUrl ?? null,
       createdById: auth.userId,
     },
     include: {
@@ -100,14 +108,13 @@ export const POST = withErrorHandler(async (req: NextRequest, { params }: Params
     },
   })
 
-  // Fire-and-forget: audit + timeline
   await Promise.all([
     logActivity({
       entityType: 'ticket',
       entityId: ticketId,
       userId: auth.userId,
       action: 'github_repo_linked',
-      metadata: { owner: connection.owner, repo: connection.repo, repoLinkId: link.id },
+      metadata: { owner: connection.owner, repo: effectiveRepo, repoLinkId: link.id },
       req,
     }),
     createTimelineEntry({
@@ -117,7 +124,7 @@ export const POST = withErrorHandler(async (req: NextRequest, { params }: Params
       metadata: {
         repoLinkId: link.id,
         owner: connection.owner,
-        repo: connection.repo,
+        repo: effectiveRepo,
         linkedBranch: body.linkedBranch ?? null,
         linkedIssueNumber: body.linkedIssueNumber ?? null,
         linkedPullRequestNumber: body.linkedPullRequestNumber ?? null,

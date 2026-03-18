@@ -13,6 +13,7 @@ import {
 import { logActivity } from '@/lib/audit'
 
 const UpdateRepoLinkSchema = z.object({
+  repoName:               z.string().min(1).max(100).regex(/^[a-zA-Z0-9_.-]+$/).nullable().optional(),
   linkedBranch:           z.string().max(255).nullable().optional(),
   linkedIssueNumber:      z.number().int().positive().nullable().optional(),
   linkedPullRequestNumber: z.number().int().positive().nullable().optional(),
@@ -41,6 +42,7 @@ export const PATCH = withErrorHandler(async (req: NextRequest, { params }: Param
   const updated = await db.ticketRepositoryLink.update({
     where: { id },
     data: {
+      ...(body.repoName !== undefined                && { repoName: body.repoName }),
       ...(body.linkedBranch !== undefined            && { linkedBranch: body.linkedBranch }),
       ...(body.linkedIssueNumber !== undefined       && { linkedIssueNumber: body.linkedIssueNumber }),
       ...(body.linkedPullRequestNumber !== undefined && { linkedPullRequestNumber: body.linkedPullRequestNumber }),

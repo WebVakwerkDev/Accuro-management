@@ -11,11 +11,12 @@ import {
   requireAuth, isAuthContext, requirePermission, parseBody, withErrorHandler,
 } from '@/lib/api-helpers'
 import { logActivity } from '@/lib/audit'
-import { encryptToken, validateGitHubToken } from '@/lib/github-token'
+import { encryptToken, validateGitHubToken, isOrgLevel } from '@/lib/github-token'
 
 const CreateConnectionSchema = z.object({
   owner:         z.string().min(1).max(100).regex(/^[a-zA-Z0-9_.-]+$/, 'Invalid GitHub owner'),
-  repo:          z.string().min(1).max(100).regex(/^[a-zA-Z0-9_.-]+$/, 'Invalid GitHub repo'),
+  // omit repo or pass "*" for org-level (all repos in the org)
+  repo:          z.string().max(100).regex(/^[a-zA-Z0-9_.*-]*$/, 'Invalid GitHub repo').optional(),
   defaultBranch: z.string().min(1).max(255).default('main'),
   token:         z.string().min(1).max(500).optional(),
 })
@@ -56,26 +57,34 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   const body = await parseBody(req, CreateConnectionSchema)
   if (body instanceof Response) return body
 
+  const repo = body.repo && body.repo !== '' ? body.repo : '*'
+  const orgLevel = isOrgLevel(repo)
+
   // Validate token against GitHub API if provided
   let encToken: string | null = null
   let resolvedBranch = body.defaultBranch
   if (body.token) {
     try {
-      const info = await validateGitHubToken(body.token, body.owner, body.repo)
+      const info = await validateGitHubToken(body.token, body.owner, repo)
       encToken = encryptToken(body.token)
-      // Use the branch from GitHub if caller left default
-      if (body.defaultBranch === 'main') resolvedBranch = info.defaultBranch
+      if (!orgLevel && body.defaultBranch === 'main' && info.defaultBranch) {
+        resolvedBranch = info.defaultBranch
+      }
     } catch (err: unknown) {
       return badRequest(err instanceof Error ? err.message : 'Token validation failed')
     }
   }
 
   const existing = await db.gitHubConnection.findUnique({
-    where: { owner_repo: { owner: body.owner, repo: body.repo } },
+    where: { owner_repo: { owner: body.owner, repo } },
   })
 
   if (existing) {
-    if (existing.isActive) return conflict(`Connection ${body.owner}/${body.repo} already exists`)
+    if (existing.isActive) return conflict(
+      orgLevel
+        ? `Org-level connection for "${body.owner}" already exists`
+        : `Connection ${body.owner}/${repo} already exists`
+    )
     // Reactivate
     const reactivated = await db.gitHubConnection.update({
       where: { id: existing.id },
@@ -96,7 +105,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   const connection = await db.gitHubConnection.create({
     data: {
       owner: body.owner,
-      repo: body.repo,
+      repo,
       defaultBranch: resolvedBranch,
       encryptedToken: encToken,
       tokenSetAt: encToken ? new Date() : null,
@@ -114,7 +123,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     entityId: connection.id,
     userId: auth.userId,
     action: 'created',
-    metadata: { owner: body.owner, repo: body.repo, hasToken: !!encToken },
+    metadata: { owner: body.owner, repo, orgLevel, hasToken: !!encToken },
     req,
   })
 

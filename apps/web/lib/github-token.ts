@@ -39,21 +39,35 @@ export function decryptToken(encrypted: string): string {
   return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8')
 }
 
-/** Validate a GitHub token by calling the GitHub API. Returns repo metadata or throws. */
+/**
+ * Validate a GitHub token by calling the GitHub API.
+ * Pass repo = "*" to validate at org level (GET /orgs/{owner}).
+ */
 export async function validateGitHubToken(
   token: string,
   owner: string,
   repo: string
-): Promise<{ fullName: string; private: boolean; defaultBranch: string }> {
-  const res = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: 'application/vnd.github+json',
-      'X-GitHub-Api-Version': '2022-11-28',
-    },
-    signal: AbortSignal.timeout(8000),
-  })
+): Promise<{ fullName: string; private?: boolean; defaultBranch?: string }> {
+  const headers = {
+    Authorization: `Bearer ${token}`,
+    Accept: 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28',
+  }
+  const signal = AbortSignal.timeout(8000)
 
+  if (repo === '*') {
+    // Org-level validation
+    const res = await fetch(`https://api.github.com/orgs/${owner}`, { headers, signal })
+    if (res.status === 401) throw new Error('Invalid GitHub token — authentication failed')
+    if (res.status === 403) throw new Error('GitHub token lacks permission to access this organisation')
+    if (res.status === 404) throw new Error(`Organisation "${owner}" not found or token has no access`)
+    if (!res.ok) throw new Error(`GitHub API error: ${res.status}`)
+    const data = await res.json() as { login: string }
+    return { fullName: data.login }
+  }
+
+  // Repo-level validation
+  const res = await fetch(`https://api.github.com/repos/${owner}/${repo}`, { headers, signal })
   if (res.status === 401) throw new Error('Invalid GitHub token — authentication failed')
   if (res.status === 403) throw new Error('GitHub token lacks permission to access this repository')
   if (res.status === 404) throw new Error('Repository not found or token has no access')
@@ -65,6 +79,19 @@ export async function validateGitHubToken(
     private: data.private,
     defaultBranch: data.default_branch,
   }
+}
+
+/** Returns true if a connection covers all repos in an org. */
+export function isOrgLevel(repo: string): boolean {
+  return repo === '*'
+}
+
+/**
+ * Resolve the effective repo name for a repository link.
+ * For org-level connections, uses link.repoName. For repo-level, uses connection.repo.
+ */
+export function resolveRepoName(connectionRepo: string, linkRepoName?: string | null): string {
+  return isOrgLevel(connectionRepo) ? (linkRepoName ?? '') : connectionRepo
 }
 
 /** Get a decrypted token for a stored connection, or null if none. */

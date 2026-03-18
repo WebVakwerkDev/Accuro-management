@@ -583,7 +583,7 @@ model GitHubConnection {
   provider       String    @default("github")
   installationId String?   // GitHub App installation ID (set if using GitHub App)
   owner          String    // e.g. "webvakwerk"
-  repo           String    // e.g. "site-klant"
+  repo           String    // e.g. "site-klant" — use "*" for org-level (all repos)
   defaultBranch  String    @default("main")
   encryptedToken String?   // AES-256-GCM encrypted PAT (null = no token stored)
   tokenSetAt     DateTime? // when token was last updated
@@ -606,6 +606,7 @@ model TicketRepositoryLink {
   ticket                  Ticket           @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   githubConnectionId      String
   githubConnection        GitHubConnection @relation(fields: [githubConnectionId], references: [id])
+  repoName                String?          // set when githubConnection.repo == "*" (org-level)
   linkedBranch            String?          // e.g. "feature/homepage-feedback"
   linkedIssueNumber       Int?             // e.g. 42
   linkedPullRequestNumber Int?             // e.g. 43
