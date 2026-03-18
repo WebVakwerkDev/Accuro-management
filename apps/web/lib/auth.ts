@@ -102,11 +102,11 @@ export async function setAuthCookies(
   refreshToken: string
 ): Promise<void> {
   const cookieStore = await cookies()
-  const isProduction = process.env.NODE_ENV === 'production'
+  const useSecureCookies = process.env.NEXTAUTH_URL?.startsWith('https://') ?? false
 
   cookieStore.set('access_token', accessToken, {
     httpOnly: true,
-    secure: isProduction,
+    secure: useSecureCookies,
     sameSite: 'lax',
     maxAge: 15 * 60, // 15 minutes
     path: '/',
@@ -114,7 +114,7 @@ export async function setAuthCookies(
 
   cookieStore.set('refresh_token', refreshToken, {
     httpOnly: true,
-    secure: isProduction,
+    secure: useSecureCookies,
     sameSite: 'lax',
     maxAge: 7 * 24 * 60 * 60, // 7 days
     path: '/api/v1/auth/refresh',
