@@ -11,7 +11,8 @@ import {
   serverError,
   withErrorHandler,
 } from '@/lib/api-helpers'
-import { authRateLimit } from '@/lib/rate-limit'
+import { authRateLimit, getClientIp } from '@/lib/rate-limit'
+import { logger } from '@/lib/logger'
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -50,18 +51,22 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   })
 
   if (!user || !user.isActive) {
-    // Constant time response to prevent user enumeration
+    // Constant-time response to prevent user enumeration via timing
     await bcrypt.compare(password, '$2a$10$invalidhashfortimingattackprevention')
+    logger.auth('login failed — user not found or inactive', { email, ip: getClientIp(req) })
     return unauthorized('Invalid email or password')
   }
 
   const passwordValid = await bcrypt.compare(password, user.passwordHash)
   if (!passwordValid) {
+    logger.auth('login failed — wrong password', { userId: user.id, ip: getClientIp(req) })
     return unauthorized('Invalid email or password')
   }
 
   const { accessToken, refreshToken } = await createSession(user.id)
   await setAuthCookies(accessToken, refreshToken)
+
+  logger.auth('login successful', { userId: user.id, role: user.role, ip: getClientIp(req) })
 
   return ok({
     user: {

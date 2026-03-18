@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import db from '@/lib/db'
 import {
@@ -8,14 +8,29 @@ import {
   parseBody,
   ok,
   created,
+  forbidden,
+  badRequest,
   withErrorHandler,
 } from '@/lib/api-helpers'
 import { z } from 'zod'
 import { logActivity } from '@/lib/audit'
+import { ALL_PERMISSIONS } from '@/lib/rbac'
 
+// Scopes must be valid permission strings or '*' (wildcard, SUPER_ADMIN only)
 const createApiKeySchema = z.object({
   name: z.string().min(1).max(100),
-  scopes: z.array(z.string()).min(1),
+  scopes: z
+    .array(z.string().min(1).max(100))
+    .min(1)
+    .refine(
+      (scopes) =>
+        scopes.every(
+          (s) => s === '*' || (ALL_PERMISSIONS as readonly string[]).includes(s)
+        ),
+      {
+        message: 'Invalid scope — must be a valid permission or "*"',
+      }
+    ),
   expiresAt: z.string().datetime().optional(),
 })
 
@@ -55,8 +70,13 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   if (permErr) return permErr
 
   const body = await parseBody(req, createApiKeySchema)
-  if ('status' in body && typeof (body as any).status === 'number') return body as any
-  const data = body as Awaited<ReturnType<typeof createApiKeySchema.parseAsync>>
+  if (body instanceof NextResponse) return body
+  const data = body
+
+  // Wildcard scope grants full system access — only SUPER_ADMIN may issue it
+  if (data.scopes.includes('*') && auth.role !== 'SUPER_ADMIN') {
+    return forbidden('Only SUPER_ADMIN can create wildcard-scoped API keys')
+  }
 
   // Generate the raw key
   const rawKey = `wv_${crypto.randomBytes(32).toString('hex')}`

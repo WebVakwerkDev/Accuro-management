@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db'
 import {
   requireAuth,
@@ -7,6 +7,7 @@ import {
   parseBody,
   ok,
   created,
+  badRequest,
   withErrorHandler,
   parsePagination,
   paginationMeta,
@@ -25,13 +26,23 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const { searchParams } = req.nextUrl
   const { page, limit, skip } = parsePagination(searchParams)
 
-  const status = searchParams.get('status')
+  const rawStatus = searchParams.get('status')
   const search = searchParams.get('search')
   const assignedToId = searchParams.get('assignedToId')
 
+  const LEAD_STATUSES = ['NEW_REQUEST','INTAKE_IN_PROGRESS','INTAKE_COMPLETE','DEMO_SCHEDULED',
+    'DEMO_IN_PROGRESS','DEMO_50_READY','WAITING_FOR_RESPONSE','APPROVAL_RECEIVED','REJECTED',
+    'WAITING_FOR_PAYMENT','PAID','CONVERTED_TO_PROJECT'] as const
+  type LeadStatus = typeof LEAD_STATUSES[number]
+
+  if (rawStatus && !(LEAD_STATUSES as readonly string[]).includes(rawStatus)) {
+    return badRequest(`Invalid status: ${rawStatus}`)
+  }
+  const status = rawStatus as LeadStatus | null
+
   const where = {
     deletedAt: null,
-    ...(status ? { status: status as any } : {}),
+    ...(status ? { status } : {}),
     ...(assignedToId ? { assignedToId } : {}),
     ...(search
       ? {
@@ -70,10 +81,8 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   if (permErr) return permErr
 
   const body = await parseBody(req, createLeadSchema)
-  if (!isAuthContext(auth) && 'status' in body) return body as any
-  if ('status' in body && typeof (body as any).status === 'number') return body as any
-
-  const data = body as Awaited<ReturnType<typeof createLeadSchema.parseAsync>>
+  if (body instanceof NextResponse) return body
+  const data = body
 
   const lead = await db.lead.create({
     data: {

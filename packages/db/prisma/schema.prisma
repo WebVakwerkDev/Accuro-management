@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {
@@ -19,20 +20,24 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  refreshTokens     RefreshToken[]
-  assignedTickets   Ticket[]              @relation("AssignedTickets")
-  createdLeads      Lead[]                @relation("CreatedLeads")
-  createdProjects   Project[]             @relation("CreatedProjects")
-  notifications     Notification[]
-  activityLogs      ActivityLog[]
-  apiKeys           ApiKey[]
-  comments          TicketComment[]
-  timelineEntries   TicketTimelineEntry[] @relation("TimelineAuthor")
-  commEntries       CommunicationEntry[]  @relation("CommAuthor")
-  referencesCreated TicketReference[]     @relation("ReferenceCreator")
-  wikiPagesCreated  WikiPage[]            @relation("WikiCreator")
-  wikiEdits         WikiPageVersion[]     @relation("WikiEditor")
-  wikiLinksCreated  TicketWikiLink[]      @relation("WikiLinkCreator")
+  refreshTokens       RefreshToken[]
+  assignedTickets     Ticket[]              @relation("AssignedTickets")
+  createdLeads        Lead[]                @relation("CreatedLeads")
+  assignedLeads       Lead[]                @relation("AssignedLeads")
+  createdProjects     Project[]             @relation("CreatedProjects")
+  notifications       Notification[]
+  activityLogs        ActivityLog[]
+  apiKeys             ApiKey[]
+  comments            TicketComment[]
+  timelineEntries     TicketTimelineEntry[] @relation("TimelineAuthor")
+  commEntries         CommunicationEntry[]  @relation("CommAuthor")
+  referencesCreated   TicketReference[]     @relation("ReferenceCreator")
+  wikiPagesCreated    WikiPage[]            @relation("WikiCreator")
+  wikiEdits           WikiPageVersion[]     @relation("WikiEditor")
+  wikiLinksCreated    TicketWikiLink[]      @relation("WikiLinkCreator")
+  githubConnections   GitHubConnection[]    @relation("GitHubConnectionCreator")
+  repoLinks           TicketRepositoryLink[] @relation("RepoLinkCreator")
+  agentRunsStarted    AgentRun[]            @relation("AgentRunStarter")
 }
 
 enum Role {
@@ -52,6 +57,10 @@ model RefreshToken {
   expiresAt DateTime
   usedAt    DateTime?
   createdAt DateTime  @default(now())
+
+  @@index([family])           // deleteMany({ family }) on reuse detection
+  @@index([userId])           // list all sessions for a user
+  @@index([expiresAt])        // periodic cleanup of expired tokens
 }
 
 model ApiKey {
@@ -67,6 +76,9 @@ model ApiKey {
   isActive    Boolean   @default(true)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+
+  @@index([createdById])      // list API keys by owner
+  @@index([expiresAt])        // periodic expiry cleanup
 }
 
 // ─── Clients ──────────────────────────────────────────────────────────────────
@@ -121,14 +133,15 @@ model Lead {
   createdById          String
   createdBy            User       @relation("CreatedLeads", fields: [createdById], references: [id])
   assignedToId         String?
+  assignedTo           User?      @relation("AssignedLeads", fields: [assignedToId], references: [id])
   convertedToProjectId String?    @unique
   convertedToProject   Project?   @relation("ConvertedFromLead")
   createdAt            DateTime   @default(now())
   updatedAt            DateTime   @updatedAt
   deletedAt            DateTime?
 
-  statusHistory StatusHistory[]
-  activityLogs  ActivityLog[]
+  @@index([status])
+  @@index([assignedToId])
 }
 
 enum LeadStatus {
@@ -176,8 +189,6 @@ model Project {
 
   tickets        Ticket[]
   feedbackRounds FeedbackRound[]
-  statusHistory  StatusHistory[]
-  activityLogs   ActivityLog[]
 }
 
 enum ProjectStatus {
@@ -242,14 +253,14 @@ model Ticket {
   updatedAt      DateTime     @updatedAt
   deletedAt      DateTime?
 
-  comments        TicketComment[]
-  attachments     Attachment[]
-  statusHistory   StatusHistory[]
-  activityLogs    ActivityLog[]
-  timelineEntries TicketTimelineEntry[]
-  communications  CommunicationEntry[]
-  references      TicketReference[]
-  wikiLinks       TicketWikiLink[]
+  comments          TicketComment[]
+  attachments       Attachment[]
+  timelineEntries   TicketTimelineEntry[]
+  communications    CommunicationEntry[]
+  references        TicketReference[]
+  wikiLinks         TicketWikiLink[]
+  repositoryLinks   TicketRepositoryLink[]
+  agentRuns         AgentRun[]
 }
 
 enum TicketStatus {
@@ -295,6 +306,8 @@ model FeedbackRound {
   closedAt    DateTime?
   createdAt   DateTime            @default(now())
   updatedAt   DateTime            @updatedAt
+
+  @@unique([projectId, roundNumber])  // prevent duplicate round numbers per project
 }
 
 enum FeedbackRoundStatus {
@@ -339,6 +352,9 @@ model Attachment {
 
 // ─── Status History ───────────────────────────────────────────────────────────
 
+// StatusHistory uses entityType + entityId as a polymorphic key (plain string, no FK).
+// Enforcing referential integrity per entity type in application code is simpler and
+// avoids the PostgreSQL limitation of a single column referencing multiple tables.
 model StatusHistory {
   id          String   @id @default(cuid())
   entityType  String
@@ -349,13 +365,13 @@ model StatusHistory {
   reason      String?
   createdAt   DateTime @default(now())
 
-  lead    Lead?    @relation(fields: [entityId], references: [id], map: "status_history_lead")
-  project Project? @relation(fields: [entityId], references: [id], map: "status_history_project")
-  ticket  Ticket?  @relation(fields: [entityId], references: [id], map: "status_history_ticket")
+  @@index([entityType, entityId])
+  @@index([changedById])
 }
 
 // ─── Audit / Activity Log ─────────────────────────────────────────────────────
 
+// ActivityLog also uses a polymorphic entityType + entityId (plain string, no FK).
 model ActivityLog {
   id         String   @id @default(cuid())
   entityType String
@@ -368,9 +384,9 @@ model ActivityLog {
   userAgent  String?
   createdAt  DateTime @default(now())
 
-  lead    Lead?    @relation(fields: [entityId], references: [id], map: "activity_log_lead")
-  project Project? @relation(fields: [entityId], references: [id], map: "activity_log_project")
-  ticket  Ticket?  @relation(fields: [entityId], references: [id], map: "activity_log_ticket")
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@index([createdAt])        // dashboard recent activity query
 }
 
 // ─── Notifications ────────────────────────────────────────────────────────────
@@ -429,6 +445,9 @@ enum TimelineEntryType {
   ASSIGNMENT
   REFERENCE_ADDED
   WIKI_LINKED
+  GITHUB_LINKED
+  AGENT_RUN_STARTED
+  AGENT_RUN_COMPLETED
 }
 
 // ─── Communications ───────────────────────────────────────────────────────────
@@ -552,4 +571,112 @@ model TicketWikiLink {
   @@unique([ticketId, wikiPageId])
   @@index([ticketId])
   @@index([wikiPageId])
+}
+
+// ─── GitHub Integration ───────────────────────────────────────────────────────
+
+// Registered GitHub repository available for linking to tickets.
+// One record per owner/repo pair. Created by an admin via the settings page.
+// Uses installationId for GitHub App auth or a service-account reference.
+model GitHubConnection {
+  id             String   @id @default(cuid())
+  provider       String   @default("github")
+  installationId String?  // GitHub App installation ID (set if using GitHub App)
+  owner          String   // e.g. "webvakwerk"
+  repo           String   // e.g. "site-klant"
+  defaultBranch  String   @default("main")
+  isActive       Boolean  @default(true)
+  createdById    String
+  createdBy      User     @relation("GitHubConnectionCreator", fields: [createdById], references: [id])
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  repositoryLinks TicketRepositoryLink[]
+
+  @@unique([owner, repo])
+  @@index([isActive])
+}
+
+// Explicit link between a ticket and a GitHub repo, with optional branch/issue/PR.
+model TicketRepositoryLink {
+  id                      String           @id @default(cuid())
+  ticketId                String
+  ticket                  Ticket           @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  githubConnectionId      String
+  githubConnection        GitHubConnection @relation(fields: [githubConnectionId], references: [id])
+  linkedBranch            String?          // e.g. "feature/homepage-feedback"
+  linkedIssueNumber       Int?             // e.g. 42
+  linkedPullRequestNumber Int?             // e.g. 43
+  environmentUrl          String?          // preview/staging URL
+  createdById             String
+  createdBy               User             @relation("RepoLinkCreator", fields: [createdById], references: [id])
+  createdAt               DateTime         @default(now())
+  updatedAt               DateTime         @updatedAt
+
+  agentRuns AgentRun[]
+
+  @@unique([ticketId, githubConnectionId]) // one link per ticket-repo pair
+  @@index([ticketId])
+  @@index([githubConnectionId])
+}
+
+enum AgentRunType {
+  PLAN            // analyse ticket and generate implementation plan
+  CREATE_ISSUE    // create a GitHub issue from ticket context
+  UPDATE_ISSUE    // update an existing GitHub issue
+  PREPARE_CHANGES // prepare code change recommendations
+  OPEN_PR_DRAFT   // open a draft PR on the linked branch
+  RUN_CODE_AGENT  // full autonomous code-agent run (restricted permission)
+}
+
+enum AgentRunStatus {
+  PENDING    // created, not yet dispatched
+  QUEUED     // dispatched, waiting in queue
+  RUNNING    // actively executing
+  SUCCEEDED  // completed successfully
+  FAILED     // completed with error
+  CANCELLED  // cancelled by user
+}
+
+// Record of an agent execution started from a ticket.
+// The core app is the orchestrator — actual execution happens in an external
+// automation layer (n8n / custom worker) that calls back via the webhook.
+model AgentRun {
+  id               String               @id @default(cuid())
+  ticketId         String
+  ticket           Ticket               @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  repositoryLinkId String
+  repositoryLink   TicketRepositoryLink @relation(fields: [repositoryLinkId], references: [id])
+  runType          AgentRunType
+  status           AgentRunStatus       @default(PENDING)
+  startedById      String
+  startedBy        User                 @relation("AgentRunStarter", fields: [startedById], references: [id])
+  inputSnapshot    Json                 // sanitized copy of ticket context at dispatch time
+  outputSummary    String?              // short human-readable result
+  outputData       Json?                // structured output (issue URL, PR URL, plan, etc.)
+  errorMessage     String?
+  externalRunId    String?              // ID returned by the external automation system
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  completedAt      DateTime?
+
+  events AgentRunEvent[]
+
+  @@index([ticketId])
+  @@index([repositoryLinkId])
+  @@index([status])
+  @@index([externalRunId])
+}
+
+// Fine-grained event log per agent run (progress updates, errors, sub-steps).
+model AgentRunEvent {
+  id         String   @id @default(cuid())
+  agentRunId String
+  agentRun   AgentRun @relation(fields: [agentRunId], references: [id], onDelete: Cascade)
+  type       String   // e.g. "info", "warning", "error", "progress"
+  message    String
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([agentRunId, createdAt])
 }

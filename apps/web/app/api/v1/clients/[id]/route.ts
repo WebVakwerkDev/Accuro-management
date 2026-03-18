@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db'
 import {
   requireAuth,
@@ -57,8 +57,8 @@ export const PATCH = withErrorHandler(async (req: NextRequest, { params }: Param
   if (!client) return notFound('Client not found')
 
   const body = await parseBody(req, updateClientSchema)
-  if ('status' in body && typeof (body as any).status === 'number') return body as any
-  const data = body as Awaited<ReturnType<typeof updateClientSchema.parseAsync>>
+  if (body instanceof NextResponse) return body
+  const data = body
 
   const updated = await db.client.update({ where: { id }, data })
 

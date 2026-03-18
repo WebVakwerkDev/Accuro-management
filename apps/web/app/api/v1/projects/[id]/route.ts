@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db'
 import {
   requireAuth,
@@ -43,12 +43,6 @@ export const GET = withErrorHandler(async (req: NextRequest, { params }: Params)
         },
       },
       feedbackRounds: { orderBy: { roundNumber: 'asc' } },
-      statusHistory: { orderBy: { createdAt: 'desc' }, take: 20 },
-      activityLogs: {
-        orderBy: { createdAt: 'desc' },
-        take: 20,
-        include: { user: { select: { id: true, name: true } } },
-      },
     },
   })
 
@@ -68,8 +62,8 @@ export const PATCH = withErrorHandler(async (req: NextRequest, { params }: Param
   if (!project) return notFound('Project not found')
 
   const body = await parseBody(req, updateProjectSchema)
-  if ('status' in body && typeof (body as any).status === 'number') return body as any
-  const data = body as Awaited<ReturnType<typeof updateProjectSchema.parseAsync>>
+  if (body instanceof NextResponse) return body
+  const data = body
 
   const oldStatus = project.status
   const { statusReason, ...updateData } = data
@@ -171,8 +165,8 @@ export const POST = withErrorHandler(async (req: NextRequest, { params }: Params
   if (!project) return notFound('Project not found')
 
   const body = await parseBody(req, openFeedbackRoundSchema)
-  if ('status' in body && typeof (body as any).status === 'number') return body as any
-  const data = body as Awaited<ReturnType<typeof openFeedbackRoundSchema.parseAsync>>
+  if (body instanceof NextResponse) return body
+  const data = body
 
   const maxRounds = project.packageType === 'PREMIUM' ? 4 : 2
   const isExtraWork = project.feedbackRoundsUsed >= maxRounds

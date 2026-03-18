@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { z } from 'zod'
 import db from '@/lib/db'
@@ -67,8 +67,8 @@ export const PATCH = withErrorHandler(async (req: NextRequest, { params }: Param
 
   // Only SUPER_ADMIN can change roles
   const body = await parseBody(req, updateUserSchema)
-  if ('status' in body && typeof (body as any).status === 'number') return body as any
-  const data = body as Awaited<ReturnType<typeof updateUserSchema.parseAsync>>
+  if (body instanceof NextResponse) return body
+  const data = body
 
   if (data.role && auth.role !== 'SUPER_ADMIN') {
     return forbidden('Only SUPER_ADMIN can change user roles')

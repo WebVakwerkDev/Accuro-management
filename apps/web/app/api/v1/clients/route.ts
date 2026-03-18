@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db'
 import {
   requireAuth,
@@ -63,8 +63,8 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   if (permErr) return permErr
 
   const body = await parseBody(req, createClientSchema)
-  if ('status' in body && typeof (body as any).status === 'number') return body as any
-  const data = body as Awaited<ReturnType<typeof createClientSchema.parseAsync>>
+  if (body instanceof NextResponse) return body
+  const data = body
 
   const client = await db.client.create({ data })
 

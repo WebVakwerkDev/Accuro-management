@@ -31,7 +31,6 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
         include: { assignedTo: { select: { name: true } } },
       },
       feedbackRounds: { orderBy: { roundNumber: 'asc' } },
-      statusHistory: { orderBy: { createdAt: 'desc' }, take: 10 },
     },
   })
 
@@ -208,23 +207,6 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
             </div>
           )}
 
-          {/* Status History */}
-          {project.statusHistory.length > 0 && (
-            <div className="bg-white rounded-xl border border-gray-200 p-5">
-              <h3 className="font-semibold text-gray-900 mb-3">Status History</h3>
-              <div className="space-y-2">
-                {project.statusHistory.map((h) => (
-                  <div key={h.id} className="text-xs">
-                    <span className="font-medium">{statusLabel(h.toStatus)}</span>
-                    {h.fromStatus && (
-                      <span className="text-gray-400"> from {statusLabel(h.fromStatus)}</span>
-                    )}
-                    <p className="text-gray-400">{formatDateTime(h.createdAt)}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>

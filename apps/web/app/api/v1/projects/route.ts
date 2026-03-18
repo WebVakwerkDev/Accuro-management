@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db'
 import {
   requireAuth,
@@ -7,6 +7,7 @@ import {
   parseBody,
   ok,
   created,
+  badRequest,
   withErrorHandler,
   parsePagination,
   paginationMeta,
@@ -24,10 +25,21 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
   const { searchParams } = req.nextUrl
   const { page, limit, skip } = parsePagination(searchParams)
-  const status = searchParams.get('status')
   const clientId = searchParams.get('clientId')
   const search = searchParams.get('search')
   const assignedToId = searchParams.get('assignedToId')
+
+  const PROJECT_STATUSES = ['KICKOFF','IN_DEVELOPMENT','WAITING_FOR_INPUT','FEEDBACK_RECEIVED',
+    'FEEDBACK_ROUND_1','FEEDBACK_ROUND_2','FEEDBACK_ROUND_3','FEEDBACK_ROUND_4',
+    'REVISION_IN_PROGRESS','READY_FOR_DELIVERY','GO_LIVE_SCHEDULED','LIVE',
+    'HANDED_OVER','COMPLETED','ON_HOLD','CANCELLED'] as const
+  type ProjectStatus = typeof PROJECT_STATUSES[number]
+
+  const rawStatus = searchParams.get('status')
+  if (rawStatus && !(PROJECT_STATUSES as readonly string[]).includes(rawStatus)) {
+    return badRequest(`Invalid status: ${rawStatus}`)
+  }
+  const status = rawStatus as ProjectStatus | null
 
   // Developers only see their assigned projects
   const isDeveloper = auth.role === 'DEVELOPER'
@@ -35,7 +47,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const where = {
     deletedAt: null,
     ...(isDeveloper ? { assignedToId: auth.userId } : {}),
-    ...(status ? { status: status as any } : {}),
+    ...(status ? { status } : {}),
     ...(clientId ? { clientId } : {}),
     ...(assignedToId && !isDeveloper ? { assignedToId } : {}),
     ...(search
@@ -74,8 +86,8 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   if (permErr) return permErr
 
   const body = await parseBody(req, createProjectSchema)
-  if ('status' in body && typeof (body as any).status === 'number') return body as any
-  const data = body as Awaited<ReturnType<typeof createProjectSchema.parseAsync>>
+  if (body instanceof NextResponse) return body
+  const data = body
 
   const project = await db.project.create({
     data: {

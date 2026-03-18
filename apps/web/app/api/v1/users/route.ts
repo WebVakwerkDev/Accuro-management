@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { z } from 'zod'
 import db from '@/lib/db'
@@ -11,6 +11,8 @@ import {
   created,
   conflict,
   withErrorHandler,
+  parsePagination,
+  paginationMeta,
 } from '@/lib/api-helpers'
 import { logActivity } from '@/lib/audit'
 
@@ -28,19 +30,27 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const permErr = requirePermission(auth, 'users:read')
   if (permErr) return permErr
 
-  const users = await db.user.findMany({
-    orderBy: { name: 'asc' },
-    select: {
-      id: true,
-      email: true,
-      name: true,
-      role: true,
-      isActive: true,
-      createdAt: true,
-    },
-  })
+  const { searchParams } = req.nextUrl
+  const { page, limit, skip } = parsePagination(searchParams)
 
-  return ok(users)
+  const [users, total] = await Promise.all([
+    db.user.findMany({
+      skip,
+      take: limit,
+      orderBy: { name: 'asc' },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        isActive: true,
+        createdAt: true,
+      },
+    }),
+    db.user.count(),
+  ])
+
+  return ok(users, paginationMeta(total, page, limit))
 })
 
 export const POST = withErrorHandler(async (req: NextRequest) => {
@@ -51,8 +61,8 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   if (permErr) return permErr
 
   const body = await parseBody(req, createUserSchema)
-  if ('status' in body && typeof (body as any).status === 'number') return body as any
-  const data = body as Awaited<ReturnType<typeof createUserSchema.parseAsync>>
+  if (body instanceof NextResponse) return body
+  const data = body
 
   const existing = await db.user.findUnique({
     where: { email: data.email.toLowerCase() },

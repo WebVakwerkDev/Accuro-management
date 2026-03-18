@@ -20,11 +20,13 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
     return NextResponse.next()
   }
 
-  // Allow static files and Next.js internals
+  // Allow static files and Next.js internals.
+  // Use an explicit extension list — pathname.includes('.') is too broad
+  // and would bypass auth for paths like /api/v1/some.endpoint.
   if (
     pathname.startsWith('/_next') ||
     pathname.startsWith('/favicon') ||
-    pathname.includes('.')
+    /\.(ico|png|jpg|jpeg|gif|svg|webp|css|js|woff|woff2|ttf|otf|map)$/.test(pathname)
   ) {
     return NextResponse.next()
   }

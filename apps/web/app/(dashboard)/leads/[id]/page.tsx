@@ -15,12 +15,6 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
     include: {
       client: true,
       createdBy: { select: { id: true, name: true, email: true } },
-      statusHistory: { orderBy: { createdAt: 'desc' }, take: 20 },
-      activityLogs: {
-        orderBy: { createdAt: 'desc' },
-        take: 15,
-        include: { user: { select: { name: true } } },
-      },
       convertedToProject: {
         select: { id: true, title: true, status: true },
       },
@@ -110,27 +104,6 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
             </div>
           )}
 
-          {/* Status History */}
-          {lead.statusHistory.length > 0 && (
-            <div className="bg-white rounded-xl border border-gray-200 p-5">
-              <h3 className="font-semibold text-gray-900 mb-4">Status History</h3>
-              <div className="space-y-2">
-                {lead.statusHistory.map((h) => (
-                  <div key={h.id} className="flex items-center gap-2 text-sm">
-                    <span className="text-gray-400">{formatDate(h.createdAt)}</span>
-                    {h.fromStatus && (
-                      <>
-                        <span className="text-gray-500">{statusLabel(h.fromStatus)}</span>
-                        <span className="text-gray-400">→</span>
-                      </>
-                    )}
-                    <span className="font-medium text-gray-700">{statusLabel(h.toStatus)}</span>
-                    {h.reason && <span className="text-gray-400">({h.reason})</span>}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Sidebar */}
@@ -163,21 +136,6 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
             </dl>
           </div>
 
-          {/* Activity */}
-          {lead.activityLogs.length > 0 && (
-            <div className="bg-white rounded-xl border border-gray-200 p-5">
-              <h3 className="font-semibold text-gray-900 mb-4">Activity</h3>
-              <div className="space-y-2">
-                {lead.activityLogs.map((log) => (
-                  <div key={log.id} className="text-xs">
-                    <span className="font-medium text-gray-700">{log.user?.name ?? 'System'}</span>{' '}
-                    <span className="text-gray-500">{log.action}</span>
-                    <p className="text-gray-400">{formatDateTime(log.createdAt)}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>

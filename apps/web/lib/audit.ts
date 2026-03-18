@@ -25,7 +25,8 @@ export async function logActivity(params: LogActivityParams): Promise<void> {
       entityId: params.entityId,
       userId: params.userId,
       action: params.action,
-      metadata: params.metadata ?? undefined,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      metadata: params.metadata ? (params.metadata as any) : undefined,
       ipAddress,
       userAgent,
     },

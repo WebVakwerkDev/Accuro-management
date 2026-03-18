@@ -1,5 +1,6 @@
 import db from './db'
-import type { TimelineEntryType, Prisma } from '@prisma/client'
+import { Prisma } from '@prisma/client'
+import type { TimelineEntryType } from '@prisma/client'
 
 type CreateSystemEntryParams = {
   ticketId: string
@@ -85,6 +86,75 @@ export async function logWikiLinked(params: {
       wikiPageId: params.wikiPageId,
       title: params.wikiPageTitle,
       slug: params.wikiPageSlug,
+    },
+  })
+}
+
+export async function logGithubLinked(params: {
+  ticketId: string
+  authorId: string
+  repoLinkId: string
+  owner: string
+  repo: string
+  linkedBranch?: string | null
+  linkedIssueNumber?: number | null
+  linkedPullRequestNumber?: number | null
+}) {
+  return createTimelineEntry({
+    ticketId: params.ticketId,
+    type: 'GITHUB_LINKED',
+    authorId: params.authorId,
+    metadata: {
+      repoLinkId: params.repoLinkId,
+      owner: params.owner,
+      repo: params.repo,
+      linkedBranch: params.linkedBranch ?? null,
+      linkedIssueNumber: params.linkedIssueNumber ?? null,
+      linkedPullRequestNumber: params.linkedPullRequestNumber ?? null,
+    },
+  })
+}
+
+export async function logAgentRunStarted(params: {
+  ticketId: string
+  authorId: string
+  agentRunId: string
+  runType: string
+  owner: string
+  repo: string
+}) {
+  return createTimelineEntry({
+    ticketId: params.ticketId,
+    type: 'AGENT_RUN_STARTED',
+    authorId: params.authorId,
+    metadata: {
+      agentRunId: params.agentRunId,
+      runType: params.runType,
+      owner: params.owner,
+      repo: params.repo,
+    },
+  })
+}
+
+export async function logAgentRunCompleted(params: {
+  ticketId: string
+  agentRunId: string
+  runType: string
+  status: string
+  owner: string
+  repo: string
+  outputSummary?: string | null
+}) {
+  return createTimelineEntry({
+    ticketId: params.ticketId,
+    type: 'AGENT_RUN_COMPLETED',
+    metadata: {
+      agentRunId: params.agentRunId,
+      runType: params.runType,
+      status: params.status,
+      owner: params.owner,
+      repo: params.repo,
+      outputSummary: params.outputSummary ?? null,
     },
   })
 }

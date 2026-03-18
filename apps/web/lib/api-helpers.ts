@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { ZodSchema, ZodError } from 'zod'
 import { getCurrentUser, verifyApiKey } from './auth'
 import { hasPermission, apiKeyScopesHavePermission, type Permission } from './rbac'
+import { logger } from './logger'
 import db from './db'
 import type { Role } from '@prisma/client'
 
@@ -112,8 +113,9 @@ export async function requireAuth(req: NextRequest): Promise<AuthContext | NextR
   return unauthorized()
 }
 
+// Use instanceof for a reliable type guard — duck-typing on 'status' is fragile.
 export function isAuthContext(value: AuthContext | NextResponse): value is AuthContext {
-  return !('status' in value)
+  return !(value instanceof NextResponse)
 }
 
 export function requirePermission(
@@ -123,12 +125,22 @@ export function requirePermission(
   // API key auth: check scopes
   if (auth.isApiKey && auth.scopes) {
     if (!apiKeyScopesHavePermission(auth.scopes, permission)) {
+      logger.permissionDenied({
+        userId: auth.userId,
+        role: auth.role,
+        permission,
+      })
       return forbidden(`API key missing scope: ${permission}`)
     }
     return null
   }
   // JWT auth: check RBAC
   if (!hasPermission(auth.role, permission)) {
+    logger.permissionDenied({
+      userId: auth.userId,
+      role: auth.role,
+      permission,
+    })
     return forbidden(`Missing permission: ${permission}`)
   }
   return null
@@ -187,7 +199,9 @@ export function withErrorHandler<T extends unknown[]>(
     try {
       return await handler(...args)
     } catch (error) {
-      console.error('Unhandled error in API route:', error)
+      logger.error('Unhandled error in API route', {
+        error: error instanceof Error ? error.message : String(error),
+      })
       return serverError()
     }
   }

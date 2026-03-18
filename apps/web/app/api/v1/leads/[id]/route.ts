@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db'
 import {
   requireAuth,
@@ -30,12 +30,6 @@ export const GET = withErrorHandler(async (req: NextRequest, { params }: Params)
     include: {
       client: true,
       createdBy: { select: { id: true, name: true, email: true } },
-      statusHistory: { orderBy: { createdAt: 'desc' }, take: 20 },
-      activityLogs: {
-        orderBy: { createdAt: 'desc' },
-        take: 20,
-        include: { user: { select: { id: true, name: true } } },
-      },
     },
   })
 
@@ -55,9 +49,8 @@ export const PATCH = withErrorHandler(async (req: NextRequest, { params }: Param
   if (!lead) return notFound('Lead not found')
 
   const body = await parseBody(req, updateLeadSchema)
-  if ('status' in body && typeof (body as any).status === 'number') return body as any
-
-  const data = body as Awaited<ReturnType<typeof updateLeadSchema.parseAsync>>
+  if (body instanceof NextResponse) return body
+  const data = body
 
   const oldStatus = lead.status
   const updated = await db.lead.update({
@@ -156,8 +149,8 @@ export const POST = withErrorHandler(async (req: NextRequest, { params }: Params
   }
 
   const body = await parseBody(req, convertLeadSchema)
-  if ('status' in body && typeof (body as any).status === 'number') return body as any
-  const data = body as Awaited<ReturnType<typeof convertLeadSchema.parseAsync>>
+  if (body instanceof NextResponse) return body
+  const data = body
 
   const clientId = data.clientId ?? lead.clientId
   if (!clientId) {

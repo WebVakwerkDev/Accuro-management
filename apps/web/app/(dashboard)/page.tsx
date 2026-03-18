@@ -1,7 +1,7 @@
 import { headers } from 'next/headers'
 import Link from 'next/link'
 import db from '@/lib/db'
-import { formatDate, formatRelativeTime, statusLabel } from '@/lib/utils'
+import { formatDate, formatRelativeTime } from '@/lib/utils'
 
 async function getDashboardData(userId: string, role: string) {
   const isDeveloper = role === 'DEVELOPER'

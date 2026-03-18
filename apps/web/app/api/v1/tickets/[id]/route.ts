@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db'
 import {
   requireAuth,
@@ -7,11 +7,13 @@ import {
   parseBody,
   ok,
   notFound,
+  badRequest,
   withErrorHandler,
 } from '@/lib/api-helpers'
 import { updateTicketSchema } from '@/lib/validations/ticket'
 import { logActivity, recordStatusChange } from '@/lib/audit'
 import { notifyTicketAssigned, notifyStatusChanged } from '@/lib/notifications'
+import { isValidTicketTransition } from '@/lib/transitions'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -48,12 +50,6 @@ export const GET = withErrorHandler(async (req: NextRequest, { params }: Params)
         },
       },
       attachments: true,
-      statusHistory: { orderBy: { createdAt: 'desc' }, take: 20 },
-      activityLogs: {
-        orderBy: { createdAt: 'desc' },
-        take: 20,
-        include: { user: { select: { id: true, name: true } } },
-      },
     },
   })
 
@@ -79,13 +75,22 @@ export const PATCH = withErrorHandler(async (req: NextRequest, { params }: Param
   if (!ticket) return notFound('Ticket not found')
 
   const body = await parseBody(req, updateTicketSchema)
-  if ('status' in body && typeof (body as any).status === 'number') return body as any
-  const data = body as Awaited<ReturnType<typeof updateTicketSchema.parseAsync>>
+  if (body instanceof NextResponse) return body
+  const data = body
 
   // Check assign permission
   if (data.assignedToId !== undefined) {
     const assignErr = requirePermission(auth, 'tickets:assign')
     if (assignErr) return assignErr
+  }
+
+  // Guard status transitions — reject invalid moves before touching the DB
+  if (data.status && data.status !== ticket.status) {
+    if (!isValidTicketTransition(ticket.status, data.status)) {
+      return badRequest(
+        `Invalid status transition: ${ticket.status} → ${data.status}`
+      )
+    }
   }
 
   const oldStatus = ticket.status

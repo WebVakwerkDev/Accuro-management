@@ -3,13 +3,31 @@ import { cookies } from 'next/headers'
 import { NextRequest } from 'next/server'
 import crypto from 'crypto'
 import db from './db'
+import { logger } from './logger'
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET ?? 'fallback-dev-secret-min-32-chars-long'
-)
-const REFRESH_SECRET = new TextEncoder().encode(
-  process.env.REFRESH_TOKEN_SECRET ?? 'fallback-refresh-secret-32-chars-xx'
-)
+// Lazy secret resolution — checked on first request, not at build time.
+// Next.js loads route modules during build without env vars being present.
+function getSecret(name: string): Uint8Array {
+  const value = process.env[name]
+  if (!value || value.length < 32) {
+    throw new Error(
+      `Required environment variable ${name} is not set or shorter than 32 characters. ` +
+      `The application cannot handle authenticated requests without it.`
+    )
+  }
+  return new TextEncoder().encode(value)
+}
+
+// Memoised after first successful access
+let _jwtSecret: Uint8Array | undefined
+let _refreshSecret: Uint8Array | undefined
+
+function JWT_SECRET(): Uint8Array {
+  return (_jwtSecret ??= getSecret('JWT_SECRET'))
+}
+function REFRESH_SECRET(): Uint8Array {
+  return (_refreshSecret ??= getSecret('REFRESH_TOKEN_SECRET'))
+}
 
 export interface JWTPayload {
   sub: string      // userId
@@ -33,7 +51,7 @@ export async function signAccessToken(payload: Omit<JWTPayload, 'iat' | 'exp'>):
     .setSubject(payload.sub)
     .setIssuedAt()
     .setExpirationTime('15m')
-    .sign(JWT_SECRET)
+    .sign(JWT_SECRET())
 }
 
 export async function signRefreshToken(
@@ -46,14 +64,14 @@ export async function signRefreshToken(
     .setSubject(userId)
     .setIssuedAt()
     .setExpirationTime('7d')
-    .sign(REFRESH_SECRET)
+    .sign(REFRESH_SECRET())
 }
 
 // ─── Token verification ───────────────────────────────────────────────────────
 
 export async function verifyAccessToken(token: string): Promise<JWTPayload | null> {
   try {
-    const { payload } = await jwtVerify(token, JWT_SECRET)
+    const { payload } = await jwtVerify(token, JWT_SECRET())
     return {
       sub: payload.sub as string,
       email: payload.email as string,
@@ -66,7 +84,7 @@ export async function verifyAccessToken(token: string): Promise<JWTPayload | nul
 
 export async function verifyRefreshToken(token: string): Promise<RefreshPayload | null> {
   try {
-    const { payload } = await jwtVerify(token, REFRESH_SECRET)
+    const { payload } = await jwtVerify(token, REFRESH_SECRET())
     return {
       sub: payload.sub as string,
       family: payload.family as string,
@@ -142,57 +160,52 @@ export async function rotateRefreshToken(refreshToken: string): Promise<{
   })
 
   if (!stored || stored.expiresAt < new Date()) {
-    // Expired or not found — invalidate entire family (token reuse attack)
+    // Expired or not found — invalidate entire family (protection against replay)
     if (stored) {
       await db.refreshToken.deleteMany({ where: { family: stored.family } })
+      logger.warn('[auth] refresh token expired, family invalidated', { family: stored.family })
     }
     return null
   }
 
   if (stored.usedAt) {
-    // Token reuse detected — invalidate entire family
+    // Token reuse detected — invalidate entire family (stolen token protection)
     await db.refreshToken.deleteMany({ where: { family: stored.family } })
+    logger.warn('[auth] refresh token reuse detected — family invalidated', {
+      userId: stored.userId,
+      family: stored.family,
+    })
     return null
   }
 
-  // Mark old token as used
-  await db.refreshToken.update({
-    where: { id: stored.id },
-    data: { usedAt: new Date() },
-  })
-
-  // Issue new tokens
   const user = stored.user
   const newFamily = stored.family
   const newTokenId = crypto.randomBytes(16).toString('hex')
-  const newRefreshRaw = crypto.randomBytes(32).toString('hex')
-
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
 
-  await db.refreshToken.create({
-    data: {
-      token: newRefreshRaw,
-      userId: user.id,
-      family: newFamily,
-      expiresAt,
-    },
-  })
+  // Sign the new refresh token first, then perform two DB writes atomically:
+  // 1. Mark old token as used
+  // 2. Insert new token
+  // Both reference different rows so no race condition exists.
+  const [accessToken, newRefreshToken] = await Promise.all([
+    signAccessToken({ sub: user.id, email: user.email, role: user.role }),
+    signRefreshToken(user.id, newFamily, newTokenId),
+  ])
 
-  const accessToken = await signAccessToken({
-    sub: user.id,
-    email: user.email,
-    role: user.role,
-  })
-
-  const newRefreshToken = await signRefreshToken(user.id, newFamily, newTokenId)
-
-  // Update stored token with signed JWT (we need the JWT for cookie)
-  // Actually store the raw random token for lookup, sign separately
-  // We store raw token as the lookup key
-  await db.refreshToken.updateMany({
-    where: { token: newRefreshRaw },
-    data: { token: newRefreshToken },
-  })
+  await db.$transaction([
+    db.refreshToken.update({
+      where: { id: stored.id },
+      data: { usedAt: new Date() },
+    }),
+    db.refreshToken.create({
+      data: {
+        token: newRefreshToken, // store the signed JWT — consistent with createSession
+        userId: user.id,
+        family: newFamily,
+        expiresAt,
+      },
+    }),
+  ])
 
   return {
     accessToken,
@@ -246,6 +259,10 @@ export async function revokeSession(refreshToken: string): Promise<void> {
 
 // ─── API Key auth ─────────────────────────────────────────────────────────────
 
+// Throttle lastUsedAt writes to at most once per minute per key.
+// Fire-and-forget — never block the request on this write.
+const LAST_USED_THRESHOLD_MS = 60 * 1000
+
 export async function verifyApiKey(apiKey: string): Promise<{
   userId: string
   scopes: string[]
@@ -262,17 +279,23 @@ export async function verifyApiKey(apiKey: string): Promise<{
       expiresAt: true,
       scopes: true,
       createdById: true,
+      lastUsedAt: true,
     },
   })
 
   if (!key || !key.isActive) return null
   if (key.expiresAt && key.expiresAt < new Date()) return null
 
-  // Update last used
-  await db.apiKey.update({
-    where: { id: key.id },
-    data: { lastUsedAt: new Date() },
-  })
+  // Throttled fire-and-forget — never block the request on this write
+  const shouldUpdate =
+    !key.lastUsedAt ||
+    Date.now() - key.lastUsedAt.getTime() > LAST_USED_THRESHOLD_MS
+
+  if (shouldUpdate) {
+    db.apiKey
+      .update({ where: { id: key.id }, data: { lastUsedAt: new Date() } })
+      .catch((err) => logger.error('Failed to update API key lastUsedAt', { error: String(err) }))
+  }
 
   return { userId: key.createdById, scopes: key.scopes }
 }
