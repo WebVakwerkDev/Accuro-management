@@ -1,0 +1,304 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  ADMIN
+  EMPLOYEE
+  FINANCE
+}
+
+enum ProjectType {
+  NEW_WEBSITE
+  REDESIGN
+  MAINTENANCE
+  LANDING_PAGE
+  WEBSHOP
+  OTHER
+}
+
+enum ProjectStatus {
+  LEAD
+  INTAKE
+  IN_PROGRESS
+  WAITING_FOR_CLIENT
+  REVIEW
+  COMPLETED
+  MAINTENANCE
+  PAUSED
+}
+
+enum ProjectPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum CommunicationType {
+  EMAIL
+  CALL
+  MEETING
+  WHATSAPP
+  DM
+  INTERNAL
+  OTHER
+}
+
+enum ChangeRequestSource {
+  EMAIL
+  CALL
+  WEBSITE_FORM
+  INTERNAL
+}
+
+enum ChangeRequestStatus {
+  NEW
+  REVIEWED
+  PLANNED
+  IN_PROGRESS
+  WAITING_FOR_FEEDBACK
+  DONE
+}
+
+enum ChangeRequestImpact {
+  SMALL
+  MEDIUM
+  LARGE
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  OVERDUE
+}
+
+enum AgentRunStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+// ─── Models ───────────────────────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         UserRole @default(EMPLOYEE)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  ownedProjects          ProjectWorkspace[]   @relation("ProjectOwner")
+  communicationEntries   CommunicationEntry[]
+  changeRequestsCreated  ChangeRequest[]      @relation("ChangeRequestCreator")
+  changeRequestsAssigned ChangeRequest[]      @relation("ChangeRequestAssignee")
+  internalNotes          InternalNote[]
+  agentRuns              AgentRun[]
+  auditLogs              AuditLog[]
+
+  @@map("users")
+}
+
+model Client {
+  id                      String   @id @default(cuid())
+  companyName             String
+  contactName             String
+  email                   String
+  phone                   String?
+  address                 String?
+  vatNumber               String?
+  chamberOfCommerceNumber String?
+  notes                   String?
+  invoiceDetails          String?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  projects ProjectWorkspace[]
+  invoices Invoice[]
+
+  @@map("clients")
+}
+
+model ProjectWorkspace {
+  id            String          @id @default(cuid())
+  clientId      String
+  name          String
+  slug          String          @unique
+  projectType   ProjectType
+  status        ProjectStatus   @default(LEAD)
+  priority      ProjectPriority @default(MEDIUM)
+  description   String?
+  intakeSummary String?
+  scope         String?
+  techStack     String?
+  domainName    String?
+  hostingInfo   String?
+  startDate     DateTime?
+  dueDate       DateTime?
+  ownerUserId   String?
+  tags          String[]        @default([])
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  client               Client               @relation(fields: [clientId], references: [id])
+  owner                User?                @relation("ProjectOwner", fields: [ownerUserId], references: [id])
+  communicationEntries CommunicationEntry[]
+  changeRequests       ChangeRequest[]
+  internalNotes        InternalNote[]
+  repositories         ProjectRepository[]
+  agentRuns            AgentRun[]
+  invoices             Invoice[]
+
+  @@map("project_workspaces")
+}
+
+model CommunicationEntry {
+  id                  String            @id @default(cuid())
+  projectId           String
+  authorUserId        String
+  type                CommunicationType
+  subject             String
+  content             String
+  externalSenderName  String?
+  externalSenderEmail String?
+  isInternal          Boolean           @default(false)
+  links               String[]          @default([])
+  occurredAt          DateTime
+  createdAt           DateTime          @default(now())
+
+  project        ProjectWorkspace @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  author         User             @relation(fields: [authorUserId], references: [id])
+  changeRequests ChangeRequest[]  @relation("CommunicationChangeRequests")
+
+  @@map("communication_entries")
+}
+
+model ChangeRequest {
+  id               String              @id @default(cuid())
+  projectId        String
+  title            String
+  description      String
+  sourceType       ChangeRequestSource
+  status           ChangeRequestStatus @default(NEW)
+  impact           ChangeRequestImpact @default(MEDIUM)
+  reopenedCount    Int                 @default(0)
+  githubIssueUrl   String?
+  githubBranch     String?
+  githubPrUrl      String?
+  createdByUserId  String
+  assignedToUserId String?
+  closedAt         DateTime?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  project       ProjectWorkspace      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy     User                  @relation("ChangeRequestCreator", fields: [createdByUserId], references: [id])
+  assignedTo    User?                 @relation("ChangeRequestAssignee", fields: [assignedToUserId], references: [id])
+  communications CommunicationEntry[] @relation("CommunicationChangeRequests")
+  notes         InternalNote[]
+  agentRuns     AgentRun[]
+
+  @@map("change_requests")
+}
+
+model InternalNote {
+  id              String   @id @default(cuid())
+  projectId       String
+  changeRequestId String?
+  authorUserId    String
+  content         String
+  createdAt       DateTime @default(now())
+
+  project       ProjectWorkspace @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  changeRequest ChangeRequest?   @relation(fields: [changeRequestId], references: [id])
+  author        User             @relation(fields: [authorUserId], references: [id])
+
+  @@map("internal_notes")
+}
+
+model ProjectRepository {
+  id              String   @id @default(cuid())
+  projectId       String
+  provider        String   @default("github")
+  repoName        String
+  repoUrl         String
+  defaultBranch   String   @default("main")
+  issueBoardUrl   String?
+  installationRef String?
+  createdAt       DateTime @default(now())
+
+  project ProjectWorkspace @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("project_repositories")
+}
+
+model AgentRun {
+  id                String         @id @default(cuid())
+  projectId         String
+  changeRequestId   String?
+  initiatedByUserId String
+  provider          String         @default("internal")
+  status            AgentRunStatus @default(PENDING)
+  promptSnapshot    String
+  outputSummary     String?
+  githubIssueUrl    String?
+  pullRequestUrl    String?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  project       ProjectWorkspace @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  changeRequest ChangeRequest?   @relation(fields: [changeRequestId], references: [id])
+  initiatedBy   User             @relation(fields: [initiatedByUserId], references: [id])
+
+  @@map("agent_runs")
+}
+
+model Invoice {
+  id            String        @id @default(cuid())
+  clientId      String
+  projectId     String?
+  invoiceNumber String        @unique
+  issueDate     DateTime
+  dueDate       DateTime
+  status        InvoiceStatus @default(DRAFT)
+  subtotal      Decimal       @db.Decimal(10, 2)
+  vatRate       Decimal       @db.Decimal(5, 2)  @default(21)
+  vatAmount     Decimal       @db.Decimal(10, 2)
+  totalAmount   Decimal       @db.Decimal(10, 2)
+  description   String
+  notes         String?
+  paidAt        DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  client  Client            @relation(fields: [clientId], references: [id])
+  project ProjectWorkspace? @relation(fields: [projectId], references: [id])
+
+  @@map("invoices")
+}
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  actorUserId  String?
+  entityType   String
+  entityId     String
+  action       String
+  metadataJson Json?
+  createdAt    DateTime @default(now())
+
+  actor User? @relation(fields: [actorUserId], references: [id])
+
+  @@index([entityType, entityId])
+  @@map("audit_logs")
+}

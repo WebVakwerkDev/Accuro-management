@@ -1,0 +1,33 @@
+# docker-compose.override.yml — Local development overrides
+#
+# This file is automatically loaded by `docker compose up`.
+# It overrides settings in docker-compose.yml for local development.
+# Do NOT commit secrets here.
+#
+# Usage:
+#   docker compose up           → uses both files (dev mode)
+#   docker compose -f docker-compose.yml up  → production mode (no overrides)
+
+services:
+
+  web:
+    # Expose web directly on port 3000 for local dev (no nginx needed)
+    ports:
+      - "3000:3000"
+    # Mount source for easier debugging (still runs built image)
+    # Remove if you want pure production behavior locally
+
+  db:
+    # Expose Postgres for local tools (Prisma Studio, TablePlus, etc.)
+    ports:
+      - "5432:5432"
+
+  redis:
+    # Expose Redis for local debugging (RedisInsight, redis-cli, etc.)
+    ports:
+      - "6379:6379"
+
+  # Disable nginx in local dev — access web directly on :3000
+  nginx:
+    profiles:
+      - prod  # only starts when: docker compose --profile prod up

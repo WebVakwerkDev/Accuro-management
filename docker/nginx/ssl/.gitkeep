@@ -1,0 +1,6 @@
+# Place your SSL certificates here for production:
+# - fullchain.pem
+# - privkey.pem
+#
+# Use Let's Encrypt (certbot) to generate them.
+# Never commit actual certificate files to git.
