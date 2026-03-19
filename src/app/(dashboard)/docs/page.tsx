@@ -1,8 +1,9 @@
-import { getDocFolders } from "@/actions/docs";
+import { ensureGeneralDocs, getDocFolders } from "@/actions/docs";
 import { GeneralDocsBrowser } from "@/components/docs/general-docs-browser";
 import { DocScope } from "@prisma/client";
 
 export default async function DocsPage() {
+  await ensureGeneralDocs();
   const result = await getDocFolders(DocScope.GENERAL);
   const folders = result.success ? result.folders ?? [] : [];
 
