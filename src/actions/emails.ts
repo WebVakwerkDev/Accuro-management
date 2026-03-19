@@ -4,7 +4,13 @@ import { prisma } from "@/lib/db";
 import { createAuditLog } from "@/lib/audit";
 import { logger } from "@/lib/logger";
 import { EmailFolder, EmailDirection } from "@prisma/client";
-import { getN8nEmailSendWebhookUrl } from "@/lib/env";
+import {
+  getMailjetApiKey,
+  getMailjetApiSecret,
+  getMailjetSenderEmail,
+  getMailjetSenderName,
+} from "@/lib/env";
+import { sendViaMailjet } from "@/lib/mailjet";
 
 export async function getEmails(folder: EmailFolder = EmailFolder.INBOX) {
   try {
@@ -129,20 +135,53 @@ export async function sendEmail(
   },
   actorUserId: string
 ) {
-  const webhookUrl = getN8nEmailSendWebhookUrl();
-  if (!webhookUrl) {
-    return { success: false as const, error: "N8N_WEBHOOK_EMAIL_SEND_URL is niet ingesteld." };
+  const apiKey = getMailjetApiKey();
+  const apiSecret = getMailjetApiSecret();
+  const senderEmail = getMailjetSenderEmail();
+  const senderName = getMailjetSenderName();
+
+  if (!apiKey || !apiSecret || !senderEmail) {
+    return {
+      success: false as const,
+      error: "Mailjet is niet geconfigureerd. Stel MAILJET_API_KEY, MAILJET_API_SECRET en MAILJET_SENDER_EMAIL in.",
+    };
   }
 
   try {
-    // Create outbound email record first
-    const attachmentsMeta = data.attachments?.map(({ name, mimeType, size }) => ({ name, mimeType, size })) ?? [];
+    const attachmentsMeta =
+      data.attachments?.map(({ name, mimeType, size }) => ({ name, mimeType, size })) ?? [];
+
+    // Send via Mailjet first — only store if send succeeds
+    const mailjetResult = await sendViaMailjet(
+      {
+        fromEmail: senderEmail,
+        fromName: senderName ?? senderEmail,
+        to: data.toAddresses.map((email) => ({ email })),
+        cc: data.ccAddresses?.map((email) => ({ email })),
+        subject: data.subject,
+        textPart: data.bodyText,
+        replyToMessageId: data.replyToExternalId,
+        attachments: data.attachments?.map((att) => ({
+          ContentType: att.mimeType,
+          Filename: att.name,
+          Base64Content: att.data,
+        })),
+      },
+      apiKey,
+      apiSecret
+    );
+
+    if (!mailjetResult.success) {
+      logger.error("Mailjet send failed", { error: mailjetResult.error });
+      return { success: false as const, error: mailjetResult.error ?? "Verzenden mislukt." };
+    }
 
     const email = await prisma.email.create({
       data: {
+        externalId: mailjetResult.messageId ?? null,
         direction: EmailDirection.OUTBOUND,
         folder: EmailFolder.SENT,
-        fromEmail: "",
+        fromEmail: senderEmail,
         toAddresses: data.toAddresses,
         ccAddresses: data.ccAddresses ?? [],
         subject: data.subject,
@@ -154,25 +193,6 @@ export async function sendEmail(
         sentAt: new Date(),
       },
     });
-
-    // Call n8n to actually send
-    const res = await fetch(webhookUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        emailId: email.id,
-        to: data.toAddresses,
-        cc: data.ccAddresses ?? [],
-        subject: data.subject,
-        bodyText: data.bodyText,
-        replyToExternalId: data.replyToExternalId ?? null,
-        attachments: data.attachments ?? [],
-      }),
-    });
-
-    if (!res.ok) {
-      logger.error("n8n email send webhook failed", { status: res.status, emailId: email.id });
-    }
 
     await createAuditLog({
       actorUserId,
