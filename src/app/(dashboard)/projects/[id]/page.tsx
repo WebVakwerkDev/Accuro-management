@@ -5,6 +5,7 @@ import { getProject } from "@/actions/projects";
 import { getCommunicationEntries } from "@/actions/communication";
 import { getRepositories } from "@/actions/repositories";
 import { getProposalDrafts } from "@/actions/proposals";
+import { getN8nWebhookUrl } from "@/lib/env";
 import { formatDate } from "@/lib/utils";
 import {
   ArrowLeft,
@@ -50,6 +51,7 @@ export default async function ProjectDetailPage({
   }
 
   const project = projectResult.project;
+  const n8nEnabled = Boolean(getN8nWebhookUrl());
 
   const [commResult, reposResult, proposalsResult] = await Promise.all([
     getCommunicationEntries(id),
@@ -59,7 +61,17 @@ export default async function ProjectDetailPage({
 
   const communications = commResult.success ? commResult.entries ?? [] : [];
   const repositories = reposResult.success ? reposResult.repositories ?? [] : [];
-  const proposals = proposalsResult.success ? proposalsResult.proposals ?? [] : [];
+  const proposals = proposalsResult.success
+    ? (proposalsResult.proposals ?? []).map((proposal) => ({
+        id: proposal.id,
+        title: proposal.title,
+        summary: proposal.summary,
+        amount: proposal.amount ? Number(proposal.amount) : null,
+        deliveryTime: proposal.deliveryTime,
+        createdAt: proposal.createdAt,
+        status: proposal.status,
+      }))
+    : [];
 
   let auditLogs: {
     id: string;
@@ -187,6 +199,7 @@ export default async function ProjectDetailPage({
             scope: project.scope,
           }}
           proposals={proposals}
+          n8nEnabled={n8nEnabled}
         />
       )}
 

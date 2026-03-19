@@ -31,9 +31,10 @@ interface Props {
     scope: string | null;
   };
   proposals: Proposal[];
+  n8nEnabled: boolean;
 }
 
-export function ProjectProposalsPanel({ client, project, proposals }: Props) {
+export function ProjectProposalsPanel({ client, project, proposals, n8nEnabled }: Props) {
   const router = useRouter();
   const { data: session } = useSession();
   const [open, setOpen] = useState(false);
@@ -124,8 +125,13 @@ export function ProjectProposalsPanel({ client, project, proposals }: Props) {
         <div>
           <h3 className="font-semibold text-gray-900">Offertes</h3>
           <p className="mt-1 text-sm text-gray-500">
-            Maak hier een offerteconcept aan dat je later aan n8n kunt koppelen.
+            Maak hier een offerteconcept aan en stuur het daarna door naar n8n.
           </p>
+          {!n8nEnabled && (
+            <p className="mt-2 text-xs text-amber-700">
+              n8n is nog niet gekoppeld. Zet `N8N_WEBHOOK_PROPOSAL_URL` in je `.env` om PDF via n8n te activeren.
+            </p>
+          )}
         </div>
         <button
           type="button"
@@ -248,10 +254,11 @@ export function ProjectProposalsPanel({ client, project, proposals }: Props) {
                     <button
                       type="button"
                       className="btn-primary text-xs"
-                      disabled={sendingId === proposal.id}
+                      disabled={sendingId === proposal.id || !n8nEnabled}
                       onClick={() => handleSendToN8n(proposal.id)}
+                      title={!n8nEnabled ? "n8n webhook is nog niet ingesteld" : undefined}
                     >
-                      {sendingId === proposal.id ? "Bezig…" : "PDF via n8n"}
+                      {!n8nEnabled ? "n8n niet ingesteld" : sendingId === proposal.id ? "Bezig…" : "PDF via n8n"}
                     </button>
                   ) : (
                     <span className="text-xs text-green-600 font-medium">✓ Verstuurd naar n8n</span>

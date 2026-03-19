@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/db";
 import { createAuditLog } from "@/lib/audit";
 import { getN8nWebhookUrl } from "@/lib/env";
+import { logger } from "@/lib/logger";
 
 export async function getProposalDrafts(projectId: string) {
   try {
@@ -18,7 +19,7 @@ export async function getProposalDrafts(projectId: string) {
 
     return { success: true, proposals };
   } catch (error) {
-    console.error("getProposalDrafts error:", error);
+    logger.error("Failed to fetch proposal drafts", error, { projectId });
     return { success: false, error: "Offerteconcepten ophalen mislukt." };
   }
 }
@@ -71,7 +72,8 @@ export async function sendProposalToN8n(proposalId: string, actorUserId: string)
     if (!res.ok) {
       return { success: false, error: `n8n webhook fout: ${res.status}` };
     }
-  } catch {
+  } catch (error) {
+    logger.error("Failed to send proposal to n8n", error, { proposalId });
     return { success: false, error: "n8n webhook niet bereikbaar." };
   }
 
@@ -138,9 +140,19 @@ export async function createProposalDraft(data: {
       },
     });
 
-    return { success: true, proposal };
+    return {
+      success: true,
+      proposal: {
+        id: proposal.id,
+        title: proposal.title,
+      },
+    };
   } catch (error) {
-    console.error("createProposalDraft error:", error);
+    logger.error("Failed to create proposal draft", error, {
+      clientId: data.clientId,
+      projectId: data.projectId,
+      title: data.title,
+    });
     return { success: false, error: "Offerteconcept aanmaken mislukt." };
   }
 }
