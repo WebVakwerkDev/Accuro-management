@@ -336,6 +336,7 @@ model DocFolder {
   client Client? @relation(fields: [clientId], references: [id], onDelete: Cascade)
   docs   DocEntry[]
 
+  @@unique([scope, clientId, name])
   @@map("doc_folders")
 }
 

@@ -1,5 +1,5 @@
 import { getDocFolders } from "@/actions/docs";
-import { DocsManager } from "@/components/docs/docs-manager";
+import { GeneralDocsBrowser } from "@/components/docs/general-docs-browser";
 import { DocScope } from "@prisma/client";
 
 export default async function DocsPage() {
@@ -15,11 +15,8 @@ export default async function DocsPage() {
         </p>
       </div>
 
-      <DocsManager
-        scope={DocScope.GENERAL}
+      <GeneralDocsBrowser
         folders={folders}
-        title="Algemene docs"
-        description="Gebruik mappen voor bijvoorbeeld e-mailtemplates, interne werkwijzen en standaardcommunicatie."
       />
     </div>
   );

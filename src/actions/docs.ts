@@ -3,6 +3,9 @@
 import { prisma } from "@/lib/db";
 import { createAuditLog } from "@/lib/audit";
 import { DocScope } from "@prisma/client";
+import { logger } from "@/lib/logger";
+
+const CLIENT_DOCS_FOLDER_NAME = "__client_docs__";
 
 export async function getDocFolders(scope: DocScope, clientId?: string) {
   try {
@@ -21,8 +24,34 @@ export async function getDocFolders(scope: DocScope, clientId?: string) {
 
     return { success: true, folders };
   } catch (error) {
-    console.error("getDocFolders error:", error);
+    logger.error("Failed to fetch doc folders", error, { scope, clientId });
     return { success: false, error: "Docs ophalen mislukt." };
+  }
+}
+
+export async function getClientDocs(clientId: string) {
+  try {
+    const docs = await prisma.docEntry.findMany({
+      where: {
+        folder: {
+          scope: DocScope.CLIENT,
+          clientId,
+        },
+      },
+      orderBy: [{ updatedAt: "desc" }, { title: "asc" }],
+      select: {
+        id: true,
+        title: true,
+        content: true,
+        updatedAt: true,
+        folderId: true,
+      },
+    });
+
+    return { success: true, docs };
+  } catch (error) {
+    logger.error("Failed to fetch client docs", error, { clientId });
+    return { success: false, error: "Klantdocs ophalen mislukt." };
   }
 }
 
@@ -55,7 +84,10 @@ export async function createDocFolder(data: {
 
     return { success: true, folder };
   } catch (error) {
-    console.error("createDocFolder error:", error);
+    logger.error("Failed to create doc folder", error, {
+      scope: data.scope,
+      clientId: data.clientId,
+    });
     return { success: false, error: "Map aanmaken mislukt." };
   }
 }
@@ -85,8 +117,56 @@ export async function createDocEntry(data: {
 
     return { success: true, entry };
   } catch (error) {
-    console.error("createDocEntry error:", error);
+    logger.error("Failed to create doc entry", error, { folderId: data.folderId });
     return { success: false, error: "Document aanmaken mislukt." };
+  }
+}
+
+export async function createClientDoc(data: {
+  clientId: string;
+  title: string;
+  content: string;
+  actorUserId: string;
+}) {
+  try {
+    let folder = await prisma.docFolder.findFirst({
+      where: {
+        scope: DocScope.CLIENT,
+        clientId: data.clientId,
+        name: CLIENT_DOCS_FOLDER_NAME,
+      },
+    });
+
+    if (!folder) {
+      folder = await prisma.docFolder.create({
+        data: {
+          name: CLIENT_DOCS_FOLDER_NAME,
+          scope: DocScope.CLIENT,
+          clientId: data.clientId,
+        },
+      });
+    }
+
+    const entry = await prisma.docEntry.create({
+      data: {
+        folderId: folder.id,
+        title: data.title,
+        content: data.content,
+      },
+    });
+
+    await createAuditLog({
+      actorUserId: data.actorUserId,
+      entityType: "DocEntry",
+      entityId: entry.id,
+      action: "CREATE",
+      metadata: { clientId: data.clientId, title: data.title, folderId: folder.id },
+    });
+
+    return { success: true, entry };
+  } catch (error) {
+    logger.error("Failed to create client doc", error, { clientId: data.clientId });
+    return { success: false, error: "Klantdocument aanmaken mislukt." };
   }
 }
 
@@ -115,7 +195,7 @@ export async function updateDocEntry(data: {
 
     return { success: true, entry };
   } catch (error) {
-    console.error("updateDocEntry error:", error);
+    logger.error("Failed to update doc entry", error, { docId: data.id });
     return { success: false, error: "Document opslaan mislukt." };
   }
 }
@@ -143,7 +223,7 @@ export async function deleteDocEntry(id: string, actorUserId: string) {
 
     return { success: true };
   } catch (error) {
-    console.error("deleteDocEntry error:", error);
+    logger.error("Failed to delete doc entry", error, { docId: id });
     return { success: false, error: "Document verwijderen mislukt." };
   }
 }

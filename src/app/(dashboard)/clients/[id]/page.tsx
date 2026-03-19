@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getClient } from "@/actions/clients";
-import { getDocFolders } from "@/actions/docs";
+import { getClientDocs } from "@/actions/docs";
 import { formatDate, formatCurrency } from "@/lib/utils";
 import {
   Building2,
@@ -15,8 +15,7 @@ import {
 } from "lucide-react";
 import { ProjectStatusBadge, InvoiceStatusBadge } from "@/components/projects/status-badge";
 import { ProposalPlaceholderButton } from "@/components/ui/proposal-placeholder-button";
-import { DocsManager } from "@/components/docs/docs-manager";
-import { DocScope } from "@prisma/client";
+import { ClientDocsPanel } from "@/components/docs/client-docs-panel";
 
 export default async function ClientDetailPage({
   params,
@@ -31,8 +30,8 @@ export default async function ClientDetailPage({
   }
 
   const client = result.client;
-  const docsResult = await getDocFolders(DocScope.CLIENT, client.id);
-  const folders = docsResult.success ? docsResult.folders ?? [] : [];
+  const docsResult = await getClientDocs(client.id);
+  const docs = docsResult.success ? docsResult.docs ?? [] : [];
 
   return (
     <div>
@@ -226,12 +225,9 @@ export default async function ClientDetailPage({
       </div>
 
       <div className="mt-6">
-        <DocsManager
-          scope={DocScope.CLIENT}
+        <ClientDocsPanel
           clientId={client.id}
-          folders={folders}
-          title="Klantdocs"
-          description="Noteer hier algemene klantafspraken, bijzonderheden, vaste werkwijzen en herbruikbare klantinformatie."
+          docs={docs}
         />
       </div>
     </div>
