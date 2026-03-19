@@ -14,8 +14,6 @@ interface Client {
   email: string | null;
   phone: string | null;
   address: string | null;
-  vatNumber: string | null;
-  chamberOfCommerceNumber: string | null;
   notes: string | null;
   invoiceDetails: string | null;
 }
@@ -32,8 +30,6 @@ export function EditClientForm({ client }: { client: Client }) {
     email: client.email ?? "",
     phone: client.phone ?? "",
     address: client.address ?? "",
-    vatNumber: client.vatNumber ?? "",
-    chamberOfCommerceNumber: client.chamberOfCommerceNumber ?? "",
     notes: client.notes ?? "",
     invoiceDetails: client.invoiceDetails ?? "",
   });
@@ -141,41 +137,6 @@ export function EditClientForm({ client }: { client: Client }) {
                 name="address"
                 type="text"
                 value={form.address}
-                onChange={handleChange}
-                className="form-input"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Company Details */}
-        <div className="card p-6">
-          <h2 className="text-sm font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-100">
-            Bedrijfsgegevens
-          </h2>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="vatNumber" className="form-label">
-                Btw-nummer
-              </label>
-              <input
-                id="vatNumber"
-                name="vatNumber"
-                type="text"
-                value={form.vatNumber}
-                onChange={handleChange}
-                className="form-input"
-              />
-            </div>
-            <div>
-              <label htmlFor="chamberOfCommerceNumber" className="form-label">
-                Kamer van Koophandel
-              </label>
-              <input
-                id="chamberOfCommerceNumber"
-                name="chamberOfCommerceNumber"
-                type="text"
-                value={form.chamberOfCommerceNumber}
                 onChange={handleChange}
                 className="form-input"
               />

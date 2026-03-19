@@ -72,7 +72,6 @@ export function CreateProjectForm({ clients, users, defaultClientId }: Props) {
     domainName: "",
     hostingInfo: "",
     startDate: "",
-    dueDate: "",
     ownerUserId: "",
   });
 
@@ -102,7 +101,6 @@ export function CreateProjectForm({ clients, users, defaultClientId }: Props) {
           tags,
           ownerUserId: form.ownerUserId || undefined,
           startDate: form.startDate || undefined,
-          dueDate: form.dueDate || undefined,
         },
         session.user.id
       );
@@ -211,20 +209,6 @@ export function CreateProjectForm({ clients, users, defaultClientId }: Props) {
                   </option>
                 ))}
               </select>
-            </div>
-
-            <div>
-              <label htmlFor="dueDate" className="form-label">
-                Deadline
-              </label>
-              <input
-                id="dueDate"
-                name="dueDate"
-                type="date"
-                value={form.dueDate}
-                onChange={handleChange}
-                className="form-input"
-              />
             </div>
 
             <div className="col-span-2">

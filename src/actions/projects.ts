@@ -137,7 +137,6 @@ export async function createProject(data: ProjectFormData, actorUserId: string) 
         domainName: validated.domainName ?? null,
         hostingInfo: validated.hostingInfo ?? null,
         startDate: validated.startDate ? new Date(validated.startDate) : null,
-        dueDate: validated.dueDate ? new Date(validated.dueDate) : null,
         ownerUserId: validated.ownerUserId ?? null,
         tags: validated.tags,
       },
@@ -186,9 +185,6 @@ export async function updateProject(
         ...(data.startDate !== undefined
           ? { startDate: data.startDate ? new Date(data.startDate) : null }
           : {}),
-        ...(data.dueDate !== undefined
-          ? { dueDate: data.dueDate ? new Date(data.dueDate) : null }
-          : {}),
         ...(data.ownerUserId !== undefined ? { ownerUserId: data.ownerUserId ?? null } : {}),
         ...(data.tags !== undefined ? { tags: data.tags } : {}),
       },
@@ -233,7 +229,6 @@ export async function getDashboardStats() {
       overdueInvoices,
       recentActivity,
       projectsWithoutRepo,
-      upcomingDeadlines,
     ] = await Promise.all([
       prisma.projectWorkspace.count({
         where: { status: ProjectStatus.IN_PROGRESS },
@@ -271,26 +266,7 @@ export async function getDashboardStats() {
         orderBy: { updatedAt: "desc" },
         take: 5,
       }),
-      prisma.projectWorkspace.findMany({
-        where: {
-          dueDate: {
-            gte: new Date(),
-            lte: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // next 14 days
-          },
-          status: {
-            notIn: [ProjectStatus.COMPLETED, ProjectStatus.PAUSED],
-          },
-        },
-        select: {
-          id: true,
-          name: true,
-          slug: true,
-          dueDate: true,
-          status: true,
-          priority: true,
-        },
-        orderBy: { dueDate: "asc" },
-      }),
+      Promise.resolve([]),
     ]);
 
     return {
@@ -302,7 +278,7 @@ export async function getDashboardStats() {
         overdueInvoices,
         recentActivity,
         projectsWithoutRepo,
-        upcomingDeadlines,
+        upcomingDeadlines: [],
       },
     };
   } catch (error) {

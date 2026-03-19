@@ -89,9 +89,6 @@ export default async function InvoiceDetailPage({
             {inv.client.address && (
               <p className="text-sm text-gray-600 mt-1">{inv.client.address}</p>
             )}
-            {inv.client.vatNumber && (
-              <p className="text-sm text-gray-500">Btw: {inv.client.vatNumber}</p>
-            )}
           </div>
           {inv.project && (
             <div>

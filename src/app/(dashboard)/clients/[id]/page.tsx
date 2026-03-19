@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getClient } from "@/actions/clients";
+import { getDocFolders } from "@/actions/docs";
 import { formatDate, formatCurrency } from "@/lib/utils";
 import {
   Building2,
@@ -14,6 +15,8 @@ import {
 } from "lucide-react";
 import { ProjectStatusBadge, InvoiceStatusBadge } from "@/components/projects/status-badge";
 import { ProposalPlaceholderButton } from "@/components/ui/proposal-placeholder-button";
+import { DocsManager } from "@/components/docs/docs-manager";
+import { DocScope } from "@prisma/client";
 
 export default async function ClientDetailPage({
   params,
@@ -28,6 +31,8 @@ export default async function ClientDetailPage({
   }
 
   const client = result.client;
+  const docsResult = await getDocFolders(DocScope.CLIENT, client.id);
+  const folders = docsResult.success ? docsResult.folders ?? [] : [];
 
   return (
     <div>
@@ -91,18 +96,6 @@ export default async function ClientDetailPage({
               Bedrijfsgegevens
             </h2>
             <dl className="space-y-2 text-sm">
-              {client.vatNumber && (
-                <div>
-                  <dt className="text-xs text-gray-400 uppercase tracking-wide">VAT</dt>
-                  <dd className="text-gray-700">{client.vatNumber}</dd>
-                </div>
-              )}
-              {client.chamberOfCommerceNumber && (
-                <div>
-                  <dt className="text-xs text-gray-400 uppercase tracking-wide">KvK</dt>
-                  <dd className="text-gray-700">{client.chamberOfCommerceNumber}</dd>
-                </div>
-              )}
               <div>
                 <dt className="text-xs text-gray-400 uppercase tracking-wide">Klant sinds</dt>
                 <dd className="text-gray-700">{formatDate(client.createdAt)}</dd>
@@ -230,6 +223,16 @@ export default async function ClientDetailPage({
             )}
           </div>
         </div>
+      </div>
+
+      <div className="mt-6">
+        <DocsManager
+          scope={DocScope.CLIENT}
+          clientId={client.id}
+          folders={folders}
+          title="Klantdocs"
+          description="Noteer hier algemene klantafspraken, bijzonderheden, vaste werkwijzen en herbruikbare klantinformatie."
+        />
       </div>
     </div>
   );

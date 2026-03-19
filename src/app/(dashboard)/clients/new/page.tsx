@@ -19,8 +19,6 @@ export default function NewClientPage() {
     email: "",
     phone: "",
     address: "",
-    vatNumber: "",
-    chamberOfCommerceNumber: "",
     notes: "",
     invoiceDetails: "",
   });
@@ -148,43 +146,6 @@ export default function NewClientPage() {
                 onChange={handleChange}
                 className="form-input"
                 placeholder="Straat 1, 1234 AB Amsterdam"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Company Details */}
-        <div className="card p-6">
-          <h2 className="text-sm font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-100">
-            Bedrijfsgegevens
-          </h2>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="vatNumber" className="form-label">
-                Btw-nummer
-              </label>
-              <input
-                id="vatNumber"
-                name="vatNumber"
-                type="text"
-                value={form.vatNumber}
-                onChange={handleChange}
-                className="form-input"
-                placeholder="NL000000000B01"
-              />
-            </div>
-            <div>
-              <label htmlFor="chamberOfCommerceNumber" className="form-label">
-                Kamer van Koophandel
-              </label>
-              <input
-                id="chamberOfCommerceNumber"
-                name="chamberOfCommerceNumber"
-                type="text"
-                value={form.chamberOfCommerceNumber}
-                onChange={handleChange}
-                className="form-input"
-                placeholder="12345678"
               />
             </div>
           </div>

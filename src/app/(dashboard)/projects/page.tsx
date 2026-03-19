@@ -2,7 +2,6 @@ import Link from "next/link";
 import { getProjects } from "@/actions/projects";
 import { Plus } from "lucide-react";
 import { ProjectStatus } from "@prisma/client";
-import { formatDate } from "@/lib/utils";
 import {
   ProjectStatusBadge,
   PriorityBadge,
@@ -67,17 +66,6 @@ export default async function ProjectsPage({
       {projects.length > 0 ? (
         <div className="grid grid-cols-3 gap-4">
           {projects.map((project) => {
-            const isOverdue =
-              project.dueDate &&
-              new Date(project.dueDate) < new Date() &&
-              !["COMPLETED", "PAUSED"].includes(project.status);
-            const daysUntilDue = project.dueDate
-              ? Math.ceil(
-                  (new Date(project.dueDate).getTime() - Date.now()) /
-                    (1000 * 60 * 60 * 24)
-                )
-              : null;
-
             return (
               <Link
                 key={project.id}
@@ -108,21 +96,6 @@ export default async function ProjectsPage({
                     <div>
                       <span className="text-gray-400">Eigenaar: </span>
                       {project.owner.name}
-                    </div>
-                  )}
-                  {project.dueDate && (
-                    <div
-                      className={
-                        isOverdue
-                          ? "text-red-600 font-medium"
-                          : daysUntilDue !== null && daysUntilDue <= 7
-                          ? "text-yellow-600"
-                          : ""
-                      }
-                    >
-                      <span className="text-gray-400">Deadline: </span>
-                      {formatDate(project.dueDate)}
-                      {isOverdue && " (achterstallig)"}
                     </div>
                   )}
                   <div className="flex items-center gap-3 pt-1">

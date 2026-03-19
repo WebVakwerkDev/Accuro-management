@@ -4,8 +4,8 @@ import { prisma } from "@/lib/db";
 import { getProject } from "@/actions/projects";
 import { getCommunicationEntries } from "@/actions/communication";
 import { getRepositories } from "@/actions/repositories";
-import { getInvoices } from "@/actions/invoices";
-import { formatDate, formatCurrency } from "@/lib/utils";
+import { getProposalDrafts } from "@/actions/proposals";
+import { formatDate } from "@/lib/utils";
 import {
   ArrowLeft,
   MessageSquare,
@@ -16,7 +16,6 @@ import {
 import {
   ProjectStatusBadge,
   PriorityBadge,
-  InvoiceStatusBadge,
 } from "@/components/projects/status-badge";
 import { ProjectTabs } from "@/components/projects/project-tabs";
 import { TimelineList } from "@/components/timeline/timeline-list";
@@ -24,7 +23,7 @@ import { ProjectCommunicationTab } from "./communication-tab";
 import { ProjectGithubTab } from "./github-tab";
 import { ProjectOverviewEditor } from "@/components/projects/project-overview-editor";
 import { ProjectLogbookQuickNote } from "@/components/projects/project-logbook-quick-note";
-import { ProposalPlaceholderButton } from "@/components/ui/proposal-placeholder-button";
+import { ProjectProposalsPanel } from "@/components/proposals/project-proposals-panel";
 
 const TABS = [
   { id: "overview", label: "Overzicht" },
@@ -52,15 +51,15 @@ export default async function ProjectDetailPage({
 
   const project = projectResult.project;
 
-  const [commResult, reposResult, invoicesResult] = await Promise.all([
+  const [commResult, reposResult, proposalsResult] = await Promise.all([
     getCommunicationEntries(id),
     getRepositories(id),
-    getInvoices({ projectId: id }),
+    getProposalDrafts(id),
   ]);
 
   const communications = commResult.success ? commResult.entries ?? [] : [];
   const repositories = reposResult.success ? reposResult.repositories ?? [] : [];
-  const invoices = invoicesResult.success ? invoicesResult.invoices ?? [] : [];
+  const proposals = proposalsResult.success ? proposalsResult.proposals ?? [] : [];
 
   let auditLogs: {
     id: string;
@@ -92,7 +91,7 @@ export default async function ProjectDetailPage({
   const tabs = TABS.map((t) => {
     if (t.id === "logbook") return { ...t, count: communications.length };
     if (t.id === "github") return { ...t, count: repositories.length };
-    if (t.id === "invoices") return { ...t, count: invoices.length };
+    if (t.id === "invoices") return { ...t, count: proposals.length };
     return t;
   });
 
@@ -120,7 +119,7 @@ export default async function ProjectDetailPage({
                 href={`/clients/${project.client.id}`}
                 className="font-medium hover:text-blue-600"
               >
-                {project.client.companyName}
+              {project.client.companyName}
               </Link>
               {project.owner && (
                 <>
@@ -128,16 +127,8 @@ export default async function ProjectDetailPage({
                   <span>Eigenaar: {project.owner.name}</span>
                 </>
               )}
-              {project.dueDate && (
-                <>
-                  <span>&middot;</span>
-                  <span>Deadline: {formatDate(project.dueDate)}</span>
-                </>
-              )}
             </div>
           </div>
-
-          <ProposalPlaceholderButton />
         </div>
 
         <div className="mt-5 grid grid-cols-3 gap-4 border-t border-gray-100 pt-5">
@@ -156,7 +147,7 @@ export default async function ProjectDetailPage({
           <div className="flex items-center gap-2 text-sm">
             <Receipt className="h-4 w-4 text-gray-400" />
             <span className="text-gray-600">
-              {invoices.length} offerte/factuur-item{invoices.length !== 1 ? "s" : ""}
+              {proposals.length} offerteconcept{proposals.length !== 1 ? "en" : ""}
             </span>
           </div>
         </div>
@@ -181,7 +172,22 @@ export default async function ProjectDetailPage({
       )}
 
       {activeTab === "invoices" && (
-        <InvoicesTab invoices={invoices} />
+        <ProjectProposalsPanel
+          client={{
+            id: project.client.id,
+            companyName: project.client.companyName,
+            contactName: project.client.contactName,
+            email: project.client.email,
+            address: project.client.address,
+          }}
+          project={{
+            id: project.id,
+            name: project.name,
+            description: project.description,
+            scope: project.scope,
+          }}
+          proposals={proposals}
+        />
       )}
 
       {activeTab === "timeline" && <TimelineList auditLogs={auditLogs} />}
@@ -213,7 +219,6 @@ function OverviewTab({
     techStack: string | null;
     domainName: string | null;
     hostingInfo: string | null;
-    dueDate: Date | null;
     startDate: Date | null;
     repositories: {
       id: string;
@@ -284,14 +289,6 @@ function OverviewTab({
                 <dd className="text-gray-700">{formatDate(p.startDate)}</dd>
               </div>
             )}
-            {p.dueDate && (
-              <div>
-                <dt className="text-xs uppercase tracking-wide text-gray-400">
-                  Deadline
-                </dt>
-                <dd className="text-gray-700">{formatDate(p.dueDate)}</dd>
-              </div>
-            )}
             {p.techStack && (
               <div>
                 <dt className="text-xs uppercase tracking-wide text-gray-400">
@@ -345,74 +342,6 @@ function OverviewTab({
           </div>
         )}
       </div>
-    </div>
-  );
-}
-
-function InvoicesTab({
-  invoices,
-}: {
-  invoices: {
-    id: string;
-    invoiceNumber: string;
-    status: "DRAFT" | "SENT" | "PAID" | "OVERDUE";
-    issueDate: Date;
-    dueDate: Date;
-    totalAmount: number | { toNumber: () => number };
-  }[];
-}) {
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="font-semibold text-gray-900">Offertes en facturen</h3>
-          <p className="mt-1 text-sm text-gray-500">
-            De knop voor offertegeneratie wordt later aan n8n gekoppeld.
-          </p>
-        </div>
-        <ProposalPlaceholderButton />
-      </div>
-
-      {invoices.length > 0 ? (
-        <div className="card">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-100 bg-gray-50 text-left">
-                  <th className="px-5 py-3 font-medium text-gray-600">Nummer</th>
-                  <th className="px-5 py-3 font-medium text-gray-600">Datum</th>
-                  <th className="px-5 py-3 font-medium text-gray-600">Vervaldatum</th>
-                  <th className="px-5 py-3 font-medium text-gray-600">Bedrag</th>
-                  <th className="px-5 py-3 font-medium text-gray-600">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {invoices.map((inv) => (
-                  <tr key={inv.id}>
-                    <td className="px-5 py-3 font-medium">#{inv.invoiceNumber}</td>
-                    <td className="px-5 py-3 text-gray-600">{formatDate(inv.issueDate)}</td>
-                    <td className="px-5 py-3 text-gray-600">{formatDate(inv.dueDate)}</td>
-                    <td className="px-5 py-3 font-medium">
-                      {formatCurrency(
-                        typeof inv.totalAmount === "object"
-                          ? inv.totalAmount.toNumber()
-                          : inv.totalAmount
-                      )}
-                    </td>
-                    <td className="px-5 py-3">
-                      <InvoiceStatusBadge status={inv.status} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      ) : (
-        <div className="card px-5 py-8 text-sm text-gray-400">
-          Nog geen offerte- of factuuritems gekoppeld aan dit project.
-        </div>
-      )}
     </div>
   );
 }

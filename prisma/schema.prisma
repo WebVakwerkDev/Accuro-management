@@ -88,6 +88,17 @@ enum AgentRunStatus {
   FAILED
 }
 
+enum DocScope {
+  GENERAL
+  CLIENT
+}
+
+enum ProposalDraftStatus {
+  DRAFT
+  READY
+  SENT_TO_N8N
+}
+
 // ─── Models ───────────────────────────────────────────────────────────────────
 
 model User {
@@ -117,15 +128,15 @@ model Client {
   email                   String
   phone                   String?
   address                 String?
-  vatNumber               String?
-  chamberOfCommerceNumber String?
   notes                   String?
   invoiceDetails          String?
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
 
-  projects ProjectWorkspace[]
-  invoices Invoice[]
+  projects       ProjectWorkspace[]
+  invoices       Invoice[]
+  docFolders     DocFolder[]
+  proposalDrafts ProposalDraft[]
 
   @@map("clients")
 }
@@ -145,7 +156,6 @@ model ProjectWorkspace {
   domainName    String?
   hostingInfo   String?
   startDate     DateTime?
-  dueDate       DateTime?
   ownerUserId   String?
   tags          String[]        @default([])
   createdAt     DateTime        @default(now())
@@ -159,6 +169,7 @@ model ProjectWorkspace {
   repositories         ProjectRepository[]
   agentRuns            AgentRun[]
   invoices             Invoice[]
+  proposalDrafts       ProposalDraft[]
 
   @@map("project_workspaces")
 }
@@ -286,6 +297,59 @@ model Invoice {
   project ProjectWorkspace? @relation(fields: [projectId], references: [id])
 
   @@map("invoices")
+}
+
+model ProposalDraft {
+  id                String              @id @default(cuid())
+  clientId          String
+  projectId         String?
+  title             String
+  recipientName     String?
+  recipientEmail    String?
+  recipientCompany  String?
+  recipientAddress  String?
+  summary           String
+  scope             String?
+  priceLabel        String?
+  amount            Decimal?            @db.Decimal(10, 2)
+  deliveryTime      String?
+  notes             String?
+  payloadJson       Json?
+  status            ProposalDraftStatus @default(DRAFT)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  client  Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project ProjectWorkspace? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@map("proposal_drafts")
+}
+
+model DocFolder {
+  id        String    @id @default(cuid())
+  name      String
+  scope     DocScope
+  clientId  String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  client Client? @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  docs   DocEntry[]
+
+  @@map("doc_folders")
+}
+
+model DocEntry {
+  id        String   @id @default(cuid())
+  folderId  String
+  title     String
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  folder DocFolder @relation(fields: [folderId], references: [id], onDelete: Cascade)
+
+  @@map("doc_entries")
 }
 
 model AuditLog {

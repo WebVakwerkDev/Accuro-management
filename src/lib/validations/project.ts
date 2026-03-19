@@ -18,7 +18,6 @@ export const ProjectFormSchema = z.object({
   domainName: z.string().optional(),
   hostingInfo: z.string().optional(),
   startDate: z.string().optional(),
-  dueDate: z.string().optional(),
   ownerUserId: z.string().optional(),
   tags: z.array(z.string()).default([]),
 });

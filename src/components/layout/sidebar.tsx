@@ -8,6 +8,7 @@ import {
   Building2,
   FolderKanban,
   Receipt,
+  FileText,
   Settings,
   LogOut,
 } from "lucide-react";
@@ -18,6 +19,7 @@ const navItems = [
   { label: "Klanten", href: "/clients", icon: Building2 },
   { label: "Projecten", href: "/projects", icon: FolderKanban },
   { label: "Financiën", href: "/finance", icon: Receipt },
+  { label: "Docs", href: "/docs", icon: FileText },
 ];
 
 export function Sidebar() {

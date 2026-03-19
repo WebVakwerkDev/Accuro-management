@@ -12,8 +12,6 @@ export const ClientFormSchema = z.object({
     .email("Invalid email address"),
   phone: z.string().optional(),
   address: z.string().optional(),
-  vatNumber: z.string().optional(),
-  chamberOfCommerceNumber: z.string().optional(),
   notes: z.string().optional(),
   invoiceDetails: z.string().optional(),
 });

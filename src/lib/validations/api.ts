@@ -17,8 +17,6 @@ const ApiClientSchema = z.object({
   email: z.string().email("Invalid email address"),
   phone: z.string().optional(),
   address: z.string().optional(),
-  vatNumber: z.string().optional(),
-  chamberOfCommerceNumber: z.string().optional(),
   notes: z.string().optional(),
   invoiceDetails: z.string().optional(),
 });
@@ -37,7 +35,6 @@ const ApiProjectSchema = z.object({
   domainName: z.string().optional(),
   hostingInfo: z.string().optional(),
   startDate: z.string().datetime({ offset: true }).or(z.string().date()).optional(),
-  dueDate: z.string().datetime({ offset: true }).or(z.string().date()).optional(),
   ownerUserId: z.string().optional(),
   tags: z.array(z.string()).default([]),
 });

@@ -7,7 +7,6 @@ import {
   MessageSquareText,
   AlertTriangle,
   ArrowRight,
-  Calendar,
   GitBranch,
 } from "lucide-react";
 
@@ -29,7 +28,6 @@ export default async function DashboardPage() {
     overdueInvoices,
     recentActivity,
     projectsWithoutRepo,
-    upcomingDeadlines,
   } = result.stats;
 
   const statCards = [
@@ -175,72 +173,12 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        {/* Upcoming deadlines */}
         <div className="card">
-          <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-            <h2 className="font-semibold text-gray-900">Aankomende deadlines</h2>
-            <span className="text-xs text-gray-400">Volgende 14 dagen</span>
+          <div className="border-b border-gray-100 px-5 py-4">
+            <h2 className="font-semibold text-gray-900">Werkwijze</h2>
           </div>
-          <div className="divide-y divide-gray-50">
-            {upcomingDeadlines.length > 0 ? (
-              upcomingDeadlines.map(
-                (p: {
-                  id: string;
-                  name: string;
-                  slug: string;
-                  dueDate: Date | null;
-                  status: string;
-                  priority: string;
-                }) => {
-                  const daysLeft = p.dueDate
-                    ? Math.ceil(
-                        (new Date(p.dueDate).getTime() - Date.now()) /
-                          (1000 * 60 * 60 * 24)
-                      )
-                    : null;
-                  return (
-                    <Link
-                      key={p.id}
-                      href={`/projects/${p.id}`}
-                      className="flex items-center justify-between px-5 py-3 hover:bg-gray-50 transition-colors"
-                    >
-                      <div className="flex items-center gap-2">
-                        <Calendar className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">
-                            {p.name}
-                          </p>
-                          {p.dueDate && (
-                            <p className="text-xs text-gray-500">
-                              Deadline {formatDate(p.dueDate)}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      <span
-                        className={`text-xs font-medium ${
-                          daysLeft !== null && daysLeft <= 3
-                            ? "text-red-600"
-                            : daysLeft !== null && daysLeft <= 7
-                            ? "text-yellow-600"
-                            : "text-gray-500"
-                        }`}
-                      >
-                        {daysLeft !== null
-                          ? daysLeft === 0
-                            ? "Vandaag"
-                            : `Nog ${daysLeft} d`
-                          : "—"}
-                      </span>
-                    </Link>
-                  );
-                }
-              )
-            ) : (
-              <div className="px-5 py-6 text-center text-sm text-gray-400">
-                Geen aankomende deadlines in de komende 14 dagen
-              </div>
-            )}
+          <div className="px-5 py-6 text-sm text-gray-500">
+            Maak eerst een klant aan, daarna een project. Werk vervolgens alles per project bij in het overzicht en logboek.
           </div>
         </div>
       </div>
