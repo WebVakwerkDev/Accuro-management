@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { getUsers } from "@/actions/users";
+import { getBusinessSettings } from "@/actions/business-settings";
 import { UserRole } from "@prisma/client";
 import { Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { UserActions } from "./user-actions";
+import { BusinessSettingsForm } from "./business-settings-form";
 
 const ROLE_VARIANTS: Record<UserRole, Parameters<typeof Badge>[0]["variant"]> = {
   ADMIN: "danger",
@@ -14,8 +16,12 @@ const ROLE_VARIANTS: Record<UserRole, Parameters<typeof Badge>[0]["variant"]> = 
 
 export default async function SettingsPage() {
   const session = await requireRole([UserRole.ADMIN]);
-  const result = await getUsers();
-  const users = result.success ? result.users ?? [] : [];
+  const [usersResult, settingsResult] = await Promise.all([
+    getUsers(),
+    getBusinessSettings(),
+  ]);
+  const users = usersResult.success ? usersResult.users ?? [] : [];
+  const settings = settingsResult.success ? settingsResult.settings : null;
 
   return (
     <div>
@@ -25,6 +31,19 @@ export default async function SettingsPage() {
           <p className="text-sm text-gray-500 mt-1">
             Beheer gebruikers en applicatie-instellingen
           </p>
+        </div>
+      </div>
+
+      {/* Business settings section */}
+      <div className="card mb-6">
+        <div className="border-b border-gray-100 px-5 py-4">
+          <h2 className="font-semibold text-gray-900">Bedrijfsinstellingen</h2>
+          <p className="text-sm text-gray-500 mt-0.5">
+            Deze gegevens worden automatisch ingevuld op offertes en facturen.
+          </p>
+        </div>
+        <div className="p-5">
+          <BusinessSettingsForm initial={settings} />
         </div>
       </div>
 

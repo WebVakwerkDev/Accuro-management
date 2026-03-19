@@ -30,17 +30,20 @@ export async function sendProposalToN8n(proposalId: string, actorUserId: string)
     return { success: false, error: "N8N_WEBHOOK_PROPOSAL_URL is niet ingesteld." };
   }
 
-  const proposal = await prisma.proposalDraft.findUnique({
-    where: { id: proposalId },
-    include: {
-      client: {
-        select: { id: true, companyName: true, contactName: true, email: true, address: true },
+  const [proposal, settings] = await Promise.all([
+    prisma.proposalDraft.findUnique({
+      where: { id: proposalId },
+      include: {
+        client: {
+          select: { id: true, companyName: true, contactName: true, email: true, address: true },
+        },
+        project: {
+          select: { id: true, name: true, description: true },
+        },
       },
-      project: {
-        select: { id: true, name: true, description: true },
-      },
-    },
-  });
+    }),
+    prisma.businessSettings.findUnique({ where: { id: "singleton" } }),
+  ]);
 
   if (!proposal) {
     return { success: false, error: "Offerte niet gevonden." };
@@ -66,6 +69,17 @@ export async function sendProposalToN8n(proposalId: string, actorUserId: string)
         client: proposal.client,
         project: proposal.project,
         createdAt: proposal.createdAt,
+        from: {
+          companyName: settings?.companyName ?? "",
+          email: settings?.email ?? "",
+          address: settings?.address ?? null,
+          kvkNumber: settings?.kvkNumber ?? null,
+          vatNumber: settings?.vatNumber ?? null,
+          iban: settings?.iban ?? null,
+          bankName: settings?.bankName ?? null,
+          phone: settings?.phone ?? null,
+          websiteUrl: settings?.websiteUrl ?? null,
+        },
       }),
     });
 

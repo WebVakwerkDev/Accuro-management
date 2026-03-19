@@ -211,13 +211,16 @@ export async function sendInvoiceToN8n(invoiceId: string, actorUserId: string) {
     return { success: false, error: "N8N_WEBHOOK_INVOICE_URL is niet ingesteld." };
   }
 
-  const invoice = await prisma.invoice.findUnique({
-    where: { id: invoiceId },
-    include: {
-      client: true,
-      project: { select: { id: true, name: true } },
-    },
-  });
+  const [invoice, settings] = await Promise.all([
+    prisma.invoice.findUnique({
+      where: { id: invoiceId },
+      include: {
+        client: true,
+        project: { select: { id: true, name: true } },
+      },
+    }),
+    prisma.businessSettings.findUnique({ where: { id: "singleton" } }),
+  ]);
 
   if (!invoice) {
     return { success: false, error: "Factuur niet gevonden." };
@@ -247,6 +250,17 @@ export async function sendInvoiceToN8n(invoiceId: string, actorUserId: string) {
           address: invoice.client.address,
         },
         project: invoice.project ?? null,
+        from: {
+          companyName: settings?.companyName ?? "",
+          email: settings?.email ?? "",
+          address: settings?.address ?? null,
+          kvkNumber: settings?.kvkNumber ?? null,
+          vatNumber: settings?.vatNumber ?? null,
+          iban: settings?.iban ?? null,
+          bankName: settings?.bankName ?? null,
+          phone: settings?.phone ?? null,
+          websiteUrl: settings?.websiteUrl ?? null,
+        },
       }),
     });
 

@@ -353,6 +353,23 @@ model DocEntry {
   @@map("doc_entries")
 }
 
+model BusinessSettings {
+  id          String   @id @default("singleton")
+  companyName String   @default("")
+  address     String?
+  kvkNumber   String?
+  vatNumber   String?
+  iban        String?
+  bankName    String?
+  email       String   @default("")
+  phone       String?
+  logoUrl     String?
+  websiteUrl  String?
+  updatedAt   DateTime @updatedAt
+
+  @@map("business_settings")
+}
+
 model AuditLog {
   id           String   @id @default(cuid())
   actorUserId  String?
