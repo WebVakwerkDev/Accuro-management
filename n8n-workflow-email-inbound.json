@@ -1,55 +1,57 @@
 {
-  "_comment": "OPTIONEEL — niet vereist voor basiswerking. Mailjet stuurt inbound mails rechtstreeks naar /api/mailjet/inbound. Deze flow kan gebruikt worden voor extra automation NA ontvangst: notificaties, AI-classificatie, ticket-suggesties, Slack-alerts, enz.",
-  "name": "E-mail automation (optioneel – post-inbound)",
+  "name": "E-mail Inbound → Ticket systeem",
   "nodes": [
     {
       "parameters": {
-        "httpMethod": "POST",
-        "path": "email-automation",
-        "responseMode": "lastNode",
-        "options": {}
+        "pollTimes": { "item": [{ "mode": "everyMinute" }] },
+        "filters": { "readStatus": "unread", "sender": "" },
+        "options": { "downloadAttachments": true }
       },
-      "id": "webhook-email-event",
-      "name": "Webhook – E-mail event van app",
-      "type": "n8n-nodes-base.webhook",
-      "typeVersion": 2,
+      "id": "gmail-trigger",
+      "name": "Gmail – Nieuwe e-mails",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1,
       "position": [240, 0],
-      "notes": "De app kan dit webhook aanroepen NA opslag van een mail voor extra automation. Payload: { emailId, from, subject, clientId, changeRequestId }"
+      "credentials": {
+        "gmailOAuth2": { "id": "JOUW_GMAIL_CREDENTIAL_ID", "name": "Gmail account" }
+      }
     },
     {
       "parameters": {
-        "conditions": {
-          "options": { "caseSensitive": false },
-          "conditions": [
-            {
-              "leftValue": "={{ $json.body.changeRequestId }}",
-              "rightValue": "",
-              "operator": { "type": "string", "operation": "isEmpty" }
-            }
-          ]
-        }
+        "jsCode": "const msg = $input.first().json;\nconst binary = $input.first().binary || {};\n\nconst from = msg.from || '';\nconst fromMatch = from.match(/^(.+?)\\s*<(.+?)>$/);\nconst fromName = fromMatch ? fromMatch[1].trim() : null;\nconst fromEmail = fromMatch ? fromMatch[2].trim() : from.trim();\n\nconst toRaw = Array.isArray(msg.to) ? msg.to : [msg.to || ''];\nconst toAddresses = toRaw.map(t => { const m = t.match(/<(.+?)>/); return m ? m[1] : t.trim(); }).filter(Boolean);\n\n// Haal bijlagemetadata op uit binary velden (geen data, alleen naam/type/grootte)\nconst attachments = Object.entries(binary)\n  .filter(([key]) => key.startsWith('attachment'))\n  .map(([, bin]) => ({\n    name: bin.fileName || 'bijlage',\n    mimeType: bin.mimeType || 'application/octet-stream',\n    size: bin.fileSize || 0,\n  }));\n\nreturn [{\n  json: {\n    externalId: msg.id,\n    fromName,\n    fromEmail,\n    toAddresses,\n    ccAddresses: [],\n    subject: msg.subject || '(geen onderwerp)',\n    bodyText: msg.text || null,\n    bodyHtml: msg.html || null,\n    threadId: msg.threadId || null,\n    receivedAt: msg.date || new Date().toISOString(),\n    attachments: attachments.length > 0 ? attachments : undefined,\n  }\n}];"
       },
-      "id": "check-unlinked",
-      "name": "Niet gekoppeld aan ticket?",
-      "type": "n8n-nodes-base.if",
+      "id": "parse-email",
+      "name": "Parseer e-mail",
+      "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [480, 0]
     },
     {
       "parameters": {
-        "jsCode": "// Voorbeeld: stuur Slack notificatie voor onbekende e-mail\nconst d = $input.first().json.body;\nreturn [{ json: { message: `Nieuwe e-mail van ${d.from} – geen ticket gekoppeld: \"${d.subject}\"` } }];"
+        "method": "POST",
+        "url": "https://portal.webvakwerk.nl/api/internal/emails/inbound",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer JOUW_INTERNAL_API_KEY" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
       },
-      "id": "notify-unlinked",
-      "name": "Notificatie (aanpassen)",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [720, -80],
-      "notes": "Pas aan: Slack, Teams, e-mail notificatie, enz."
+      "id": "push-to-app",
+      "name": "Push naar ticket systeem",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [720, 0]
     }
   ],
   "connections": {
-    "Webhook – E-mail event van app": { "main": [[{ "node": "Niet gekoppeld aan ticket?", "type": "main", "index": 0 }]] },
-    "Niet gekoppeld aan ticket?": { "main": [[{ "node": "Notificatie (aanpassen)", "type": "main", "index": 0 }], []] }
+    "Gmail – Nieuwe e-mails": { "main": [[{ "node": "Parseer e-mail", "type": "main", "index": 0 }]] },
+    "Parseer e-mail": { "main": [[{ "node": "Push naar ticket systeem", "type": "main", "index": 0 }]] }
   },
   "meta": {
     "templateCredsSetupCompleted": false
