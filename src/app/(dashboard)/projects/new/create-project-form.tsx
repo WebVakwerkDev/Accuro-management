@@ -30,6 +30,7 @@ const PROJECT_TYPES: { value: ProjectType; label: string }[] = [
   { value: "REDESIGN", label: "Herontwerp" },
   { value: "MAINTENANCE", label: "Onderhoud" },
   { value: "LANDING_PAGE", label: "Landingspagina" },
+  { value: "PORTFOLIO", label: "Portfolio" },
   { value: "WEBSHOP", label: "Webshop" },
   { value: "OTHER", label: "Overig" },
 ];
