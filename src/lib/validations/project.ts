@@ -11,7 +11,7 @@ export const ProjectFormSchema = z.object({
   clientId: z.string().trim().min(1, "Client is required"),
   projectType: z.nativeEnum(ProjectType),
   status: z.nativeEnum(ProjectStatus),
-  priority: z.nativeEnum(ProjectPriority),
+  priority: z.nativeEnum(ProjectPriority).default(ProjectPriority.MEDIUM),
   description: optionalTrimmedString,
   intakeSummary: optionalTrimmedString,
   scope: optionalTrimmedString,

@@ -6,7 +6,7 @@ import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { createProject } from "@/actions/projects";
 import { Loader2 } from "lucide-react";
-import { ProjectType, ProjectStatus, ProjectPriority } from "@prisma/client";
+import { ProjectType, ProjectStatus } from "@prisma/client";
 
 interface Client {
   id: string;
@@ -46,12 +46,6 @@ const PROJECT_STATUSES: { value: ProjectStatus; label: string }[] = [
   { value: "PAUSED", label: "Gepauzeerd" },
 ];
 
-const PROJECT_PRIORITIES: { value: ProjectPriority; label: string }[] = [
-  { value: "LOW", label: "Laag" },
-  { value: "MEDIUM", label: "Gemiddeld" },
-  { value: "HIGH", label: "Hoog" },
-  { value: "URGENT", label: "Urgent" },
-];
 
 export function CreateProjectForm({ clients, users, defaultClientId }: Props) {
   const router = useRouter();
@@ -66,7 +60,6 @@ export function CreateProjectForm({ clients, users, defaultClientId }: Props) {
     clientId: defaultClientId ?? "",
     projectType: "NEW_WEBSITE" as ProjectType,
     status: "INTAKE" as ProjectStatus,
-    priority: "MEDIUM" as ProjectPriority,
     description: "",
     scope: "",
     techStack: "",
@@ -271,24 +264,6 @@ export function CreateProjectForm({ clients, users, defaultClientId }: Props) {
               </select>
             </div>
 
-            <div>
-              <label htmlFor="priority" className="form-label">
-                Prioriteit
-              </label>
-              <select
-                id="priority"
-                name="priority"
-                value={form.priority}
-                onChange={handleChange}
-                className="form-select"
-              >
-                {PROJECT_PRIORITIES.map((p) => (
-                  <option key={p.value} value={p.value}>
-                    {p.label}
-                  </option>
-                ))}
-              </select>
-            </div>
           </div>
         </div>
 

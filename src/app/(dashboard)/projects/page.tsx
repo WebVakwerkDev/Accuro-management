@@ -2,10 +2,7 @@ import Link from "next/link";
 import { getProjects } from "@/actions/projects";
 import { Plus } from "lucide-react";
 import { ProjectStatus } from "@prisma/client";
-import {
-  ProjectStatusBadge,
-  PriorityBadge,
-} from "@/components/projects/status-badge";
+import { ProjectStatusBadge } from "@/components/projects/status-badge";
 
 const STATUS_TABS = [
   { label: "Alle", value: "" },
@@ -82,7 +79,6 @@ export default async function ProjectsPage({
                       {project.client.companyName}
                     </p>
                   </div>
-                  <PriorityBadge priority={project.priority} />
                 </div>
 
                 {/* Status */}

@@ -16,11 +16,8 @@ import {
   Receipt,
   ExternalLink,
 } from "lucide-react";
-import {
-  ProjectStatusBadge,
-  PriorityBadge,
-} from "@/components/projects/status-badge";
 import { ProjectTabs } from "@/components/projects/project-tabs";
+import { ProjectStatusSelect } from "@/components/projects/project-status-select";
 import { TimelineList } from "@/components/timeline/timeline-list";
 import { ProjectCommunicationTab } from "./communication-tab";
 import { ProjectGithubTab } from "./github-tab";
@@ -139,8 +136,7 @@ export default async function ProjectDetailPage({
           <div className="min-w-0 flex-1">
             <div className="mb-1 flex flex-wrap items-center gap-3">
               <h1 className="text-xl font-bold text-gray-900">{project.name}</h1>
-              <ProjectStatusBadge status={project.status} />
-              <PriorityBadge priority={project.priority} />
+              <ProjectStatusSelect projectId={id} status={project.status} />
             </div>
 
             <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500">
