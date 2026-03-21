@@ -35,23 +35,10 @@ export async function ensureGeneralDocs() {
     const docs = await loadGeneralDocsContent();
 
     for (const doc of docs) {
-      let folder = await prisma.docFolder.findFirst({
-        where: {
-          scope: DocScope.GENERAL,
-          clientId: null,
-          name: doc.folder,
-        },
+      const folder = await getOrCreateDocFolder({
+        scope: DocScope.GENERAL,
+        name: doc.folder,
       });
-
-      if (!folder) {
-        folder = await prisma.docFolder.create({
-          data: {
-            scope: DocScope.GENERAL,
-            clientId: null,
-            name: doc.folder,
-          },
-        });
-      }
 
       const existing = await prisma.docEntry.findFirst({
         where: {
@@ -186,23 +173,11 @@ export async function createClientDoc(data: {
   actorUserId: string;
 }) {
   try {
-    let folder = await prisma.docFolder.findFirst({
-      where: {
-        scope: DocScope.CLIENT,
-        clientId: data.clientId,
-        name: CLIENT_DOCS_FOLDER_NAME,
-      },
+    const folder = await getOrCreateDocFolder({
+      scope: DocScope.CLIENT,
+      clientId: data.clientId,
+      name: CLIENT_DOCS_FOLDER_NAME,
     });
-
-    if (!folder) {
-      folder = await prisma.docFolder.create({
-        data: {
-          name: CLIENT_DOCS_FOLDER_NAME,
-          scope: DocScope.CLIENT,
-          clientId: data.clientId,
-        },
-      });
-    }
 
     const entry = await prisma.docEntry.create({
       data: {
@@ -283,4 +258,30 @@ export async function deleteDocEntry(id: string, actorUserId: string) {
     logger.error("Failed to delete doc entry", error, { docId: id });
     return { success: false, error: "Document verwijderen mislukt." };
   }
+}
+
+async function getOrCreateDocFolder(data: {
+  scope: DocScope;
+  name: string;
+  clientId?: string;
+}) {
+  const folder = await prisma.docFolder.findFirst({
+    where: {
+      scope: data.scope,
+      clientId: data.scope === DocScope.CLIENT ? data.clientId ?? null : null,
+      name: data.name,
+    },
+  });
+
+  if (folder) {
+    return folder;
+  }
+
+  return prisma.docFolder.create({
+    data: {
+      scope: data.scope,
+      clientId: data.scope === DocScope.CLIENT ? data.clientId ?? null : null,
+      name: data.name,
+    },
+  });
 }

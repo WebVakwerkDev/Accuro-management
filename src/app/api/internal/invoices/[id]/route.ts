@@ -22,7 +22,10 @@ export async function PATCH(
     return NextResponse.json({ success: false, error: "Invalid JSON" }, { status: 400 });
   }
 
-  const invoice = await prisma.invoice.findUnique({ where: { id } });
+  const invoice = await prisma.invoice.findUnique({
+    where: { id },
+    select: { id: true },
+  });
   if (!invoice) {
     return NextResponse.json({ success: false, error: "Factuur niet gevonden" }, { status: 404 });
   }

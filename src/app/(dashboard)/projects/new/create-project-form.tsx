@@ -6,7 +6,7 @@ import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { createProject } from "@/actions/projects";
 import { Loader2 } from "lucide-react";
-import { ProjectType, ProjectStatus } from "@prisma/client";
+import { ProjectType, ProjectStatus, ProjectPriority } from "@prisma/client";
 
 interface Client {
   id: string;
@@ -60,6 +60,7 @@ export function CreateProjectForm({ clients, users, defaultClientId }: Props) {
     clientId: defaultClientId ?? "",
     projectType: "NEW_WEBSITE" as ProjectType,
     status: "INTAKE" as ProjectStatus,
+    priority: "MEDIUM" as ProjectPriority,
     description: "",
     scope: "",
     techStack: "",

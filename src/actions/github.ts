@@ -17,15 +17,12 @@ import {
 
 export async function getProjectRepoInfo(projectId: string, repositoryId: string) {
   try {
-    const repo = await prisma.projectRepository.findUnique({
-      where: { id: repositoryId },
-    });
-    if (!repo || repo.projectId !== projectId) {
+    const repoContext = await getProjectRepositoryContext(projectId, repositoryId);
+    if (!repoContext) {
       return { success: false as const, error: "Repository not found" };
     }
 
-    const { owner, repo: repoName } = parseOwnerRepo(repo.repoName);
-    const info = await getRepositoryInfo(owner, repoName);
+    const info = await getRepositoryInfo(repoContext.owner, repoContext.repoName);
 
     return { success: true as const, info };
   } catch (error) {
@@ -45,15 +42,12 @@ export async function checkProjectCopilotAgent(
   actorUserId: string,
 ) {
   try {
-    const repo = await prisma.projectRepository.findUnique({
-      where: { id: repositoryId },
-    });
-    if (!repo || repo.projectId !== projectId) {
+    const repoContext = await getProjectRepositoryContext(projectId, repositoryId);
+    if (!repoContext) {
       return { success: false as const, error: "Repository not found" };
     }
 
-    const { owner, repo: repoName } = parseOwnerRepo(repo.repoName);
-    const result = await checkCopilotAgent(owner, repoName);
+    const result = await checkCopilotAgent(repoContext.owner, repoContext.repoName);
 
     await createAuditLog({
       actorUserId,
@@ -62,7 +56,7 @@ export async function checkProjectCopilotAgent(
       action: "COPILOT_AGENT_CHECKED",
       metadata: {
         projectId,
-        repoName: repo.repoName,
+        repoName: repoContext.repository.repoName,
         available: result.available,
       },
     });
@@ -90,25 +84,23 @@ export async function promptGithubAgent(
       return { success: false as const, error: "Prompt is verplicht" };
     }
 
-    const [repo, project] = await Promise.all([
-      prisma.projectRepository.findUnique({ where: { id: repositoryId } }),
+    const [repoContext, project] = await Promise.all([
+      getProjectRepositoryContext(projectId, repositoryId),
       prisma.projectWorkspace.findUnique({
         where: { id: projectId },
         select: { name: true, techStack: true, description: true },
       }),
     ]);
 
-    if (!repo || repo.projectId !== projectId) {
+    if (!repoContext) {
       return { success: false as const, error: "Repository niet gevonden" };
     }
     if (!project) {
       return { success: false as const, error: "Project niet gevonden" };
     }
 
-    const { owner, repo: repoName } = parseOwnerRepo(repo.repoName);
-
     // Check Copilot availability to get the actual bot login
-    const copilot = await checkCopilotAgent(owner, repoName);
+    const copilot = await checkCopilotAgent(repoContext.owner, repoContext.repoName);
 
     const bodyParts = [
       prompt.trim(),
@@ -126,7 +118,7 @@ export async function promptGithubAgent(
     const title = prompt.trim().split("\n")[0].slice(0, 100);
 
     // Create issue without assignees (GitHub silently ignores bot assignees on creation)
-    const issue = await createIssue(owner, repoName, {
+    const issue = await createIssue(repoContext.owner, repoContext.repoName, {
       title,
       body: bodyParts.join("\n"),
     });
@@ -134,7 +126,7 @@ export async function promptGithubAgent(
     let copilotAssigned = false;
     if (copilot.available && copilot.login) {
       try {
-        await addIssueAssignees(owner, repoName, issue.number, [copilot.login]);
+        await addIssueAssignees(repoContext.owner, repoContext.repoName, issue.number, [copilot.login]);
         copilotAssigned = true;
       } catch (assignError) {
         logger.warn("Could not assign Copilot agent — insufficient token permissions", {
@@ -185,7 +177,7 @@ export async function createIssueFromChangeRequest(
     // Load change request + project + repo in parallel
     const [changeRequest, repo, project] = await Promise.all([
       prisma.changeRequest.findUnique({ where: { id: changeRequestId } }),
-      prisma.projectRepository.findUnique({ where: { id: repositoryId } }),
+      getProjectRepositoryContext(projectId, repositoryId),
       prisma.projectWorkspace.findUnique({
         where: { id: projectId },
         select: { name: true, techStack: true },
@@ -195,14 +187,12 @@ export async function createIssueFromChangeRequest(
     if (!changeRequest || changeRequest.projectId !== projectId) {
       return { success: false as const, error: "Change request not found" };
     }
-    if (!repo || repo.projectId !== projectId) {
+    if (!repo) {
       return { success: false as const, error: "Repository not found" };
     }
     if (changeRequest.githubIssueUrl) {
       return { success: false as const, error: "Issue already created for this change request" };
     }
-
-    const { owner, repo: repoName } = parseOwnerRepo(repo.repoName);
 
     // Build issue body
     const sections = [
@@ -217,7 +207,7 @@ export async function createIssueFromChangeRequest(
     }
     sections.push("", `---`, `*Created from project: ${project?.name ?? projectId}*`);
 
-    const issue = await createIssue(owner, repoName, {
+    const issue = await createIssue(repo.owner, repo.repoName, {
       title: changeRequest.title,
       body: sections.join("\n"),
     });
@@ -237,7 +227,7 @@ export async function createIssueFromChangeRequest(
         projectId,
         issueNumber: issue.number,
         issueUrl: issue.url,
-        repoName: repo.repoName,
+        repoName: repo.repository.repoName,
       },
     });
 
@@ -249,4 +239,22 @@ export async function createIssueFromChangeRequest(
     logger.error("createIssueFromChangeRequest error:", error);
     return { success: false as const, error: "Failed to create GitHub issue" };
   }
+}
+
+async function getProjectRepositoryContext(projectId: string, repositoryId: string) {
+  const repository = await prisma.projectRepository.findUnique({
+    where: { id: repositoryId },
+  });
+
+  if (!repository || repository.projectId !== projectId) {
+    return null;
+  }
+
+  const { owner, repo } = parseOwnerRepo(repository.repoName);
+
+  return {
+    repository,
+    owner,
+    repoName: repo,
+  };
 }
