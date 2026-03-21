@@ -4,7 +4,6 @@ import { prisma } from "@/lib/db";
 import { createAuditLog } from "@/lib/audit";
 import { DocScope } from "@prisma/client";
 import { logger } from "@/lib/logger";
-import { loadGeneralDocsContent } from "@/lib/content";
 import { getResolvedBusinessSettings } from "@/lib/settings";
 import {
   createClientDocInRepository,
@@ -22,7 +21,11 @@ const CLIENT_DOCS_FOLDER_NAME = "__client_docs__";
 export async function getDocFolders(scope: DocScope, clientId?: string) {
   try {
     const docsRepository = await getDocsRepositoryConfig();
-    if (scope === DocScope.GENERAL && docsRepository) {
+    if (scope === DocScope.GENERAL) {
+      if (!docsRepository) {
+        return { success: true as const, folders: [] };
+      }
+
       const folders = await getGeneralDocsFromRepository(docsRepository);
       return { success: true as const, folders };
     }
@@ -44,54 +47,6 @@ export async function getDocFolders(scope: DocScope, clientId?: string) {
   } catch (error) {
     logger.error("Failed to fetch doc folders", error, { scope, clientId });
     return { success: false, error: "Docs ophalen mislukt." };
-  }
-}
-
-export async function ensureGeneralDocs() {
-  try {
-    const docsRepository = await getDocsRepositoryConfig();
-    if (docsRepository) {
-      return { success: true as const };
-    }
-
-    const docs = await loadGeneralDocsContent();
-
-    for (const doc of docs) {
-      const folder = await getOrCreateDocFolder({
-        scope: DocScope.GENERAL,
-        name: doc.folder,
-      });
-
-      const existing = await prisma.docEntry.findFirst({
-        where: {
-          folderId: folder.id,
-          title: doc.title,
-        },
-      });
-
-      if (!existing) {
-        await prisma.docEntry.create({
-          data: {
-            folderId: folder.id,
-            title: doc.title,
-            content: doc.content,
-          },
-        });
-        continue;
-      }
-
-      if (existing.content !== doc.content) {
-        await prisma.docEntry.update({
-          where: { id: existing.id },
-          data: { content: doc.content },
-        });
-      }
-    }
-
-    return { success: true };
-  } catch (error) {
-    logger.error("Failed to ensure general docs", error);
-    return { success: false, error: "Standaarddocs konden niet worden bijgewerkt." };
   }
 }
 
@@ -154,6 +109,13 @@ export async function createDocFolder(data: {
       return { success: true as const, folder };
     }
 
+    if (data.scope === DocScope.GENERAL) {
+      return {
+        success: false as const,
+        error: "Koppel eerst een GitHub docs-repository in de instellingen.",
+      };
+    }
+
     const folder = await prisma.docFolder.create({
       data: {
         name: data.name,
@@ -209,6 +171,13 @@ export async function createDocEntry(data: {
       });
 
       return { success: true as const, entry };
+    }
+
+    if (data.folderId.startsWith("github-folder:")) {
+      return {
+        success: false as const,
+        error: "Koppel eerst een GitHub docs-repository in de instellingen.",
+      };
     }
 
     const entry = await prisma.docEntry.create({
