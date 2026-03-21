@@ -3,7 +3,7 @@ import { requireRole } from "@/lib/auth";
 import { getUsers } from "@/actions/users";
 import { getBusinessSettings } from "@/actions/business-settings";
 import { UserRole } from "@prisma/client";
-import { Plus } from "lucide-react";
+import { Download, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { UserActions } from "./user-actions";
 import { BusinessSettingsForm } from "./business-settings-form";
@@ -31,6 +31,26 @@ export default async function SettingsPage() {
           <p className="text-sm text-gray-500 mt-1">
             Beheer gebruikers en applicatie-instellingen
           </p>
+        </div>
+      </div>
+
+      <div className="card mb-6">
+        <div className="flex items-center justify-between gap-4 border-b border-gray-100 px-5 py-4">
+          <div>
+            <h2 className="font-semibold text-gray-900">Data export</h2>
+            <p className="text-sm text-gray-500 mt-0.5">
+              Download een JSON-export van klanten, projecten, communicatie,
+              facturen, documentatie, offertes, gebruikers en auditlogs.
+            </p>
+          </div>
+          <a href="/api/admin/export" className="btn-secondary">
+            <Download className="h-4 w-4" />
+            Exporteer data
+          </a>
+        </div>
+        <div className="px-5 py-4 text-sm text-gray-500">
+          De export is alleen beschikbaar voor admins en bevat geen
+          wachtwoordhashes.
         </div>
       </div>
 
