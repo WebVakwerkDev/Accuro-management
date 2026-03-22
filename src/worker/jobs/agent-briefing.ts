@@ -9,9 +9,13 @@
  */
 import { prisma } from "@/lib/db";
 import { AgentRunStatus } from "@prisma/client";
-import type { AgentBriefingJobData } from "@/lib/queue";
 import { logger } from "@/lib/logger";
-import { buildDeveloperBriefing } from "@/lib/briefing";
+
+type AgentBriefingJobData = {
+  projectId: string;
+  changeRequestId?: string | null;
+  actorUserId: string;
+};
 
 export async function processAgentBriefing(data: AgentBriefingJobData) {
   const { projectId, changeRequestId, actorUserId } = data;
@@ -41,7 +45,15 @@ export async function processAgentBriefing(data: AgentBriefingJobData) {
     });
   }
 
-  const briefing = buildDeveloperBriefing(project, changeRequest);
+  const briefing = [
+    `Project: ${project.name}`,
+    `Client: ${project.client.companyName}`,
+    changeRequest ? `Change request: ${changeRequest.title}` : "Change request: none",
+    changeRequest?.description ? `Description: ${changeRequest.description}` : "",
+    project.description ? `Project description: ${project.description}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
 
   // Save the run record
   const agentRun = await prisma.agentRun.create({
