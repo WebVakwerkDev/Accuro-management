@@ -5,6 +5,7 @@ import {
   createProjectViaApi,
   ApiError,
 } from "@/services/projectCreationService";
+import { sendTicketCreatedDiscordNotification } from "@/services/discordWebhookService";
 import { authenticateApiKey } from "@/lib/api-auth";
 import { logger } from "@/lib/logger";
 
@@ -68,6 +69,15 @@ export async function POST(request: NextRequest) {
   // 5. Execute
   try {
     const result = await createProjectViaApi(input, sourceMetadata);
+
+    try {
+      await sendTicketCreatedDiscordNotification({ request: input, result });
+    } catch (error) {
+      logger.warn("Failed to send Discord ticket webhook", {
+        projectId: result.project.id,
+        error,
+      });
+    }
 
     return NextResponse.json({ success: true, ...result }, { status: 201 });
   } catch (error) {

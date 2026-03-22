@@ -71,3 +71,7 @@ export function getN8nYearlyReportWebhookUrl() {
 export function getN8nMonthlyReportWebhookUrl() {
   return parseOptional("N8N_WEBHOOK_MONTHLY_REPORT_URL", UrlStringSchema);
 }
+
+export function getDiscordTicketWebhookUrl() {
+  return parseOptional("DISCORD_TICKET_WEBHOOK_URL", UrlStringSchema);
+}

@@ -29,6 +29,7 @@ Open `.env` en vul de waarden in. Minimaal nodig:
 | `NEXTAUTH_SECRET` | Auth signing key (min 32 chars) | `openssl rand -base64 32` |
 | `NEXTAUTH_URL` | URL van de app | `http://localhost:3000` |
 | `INTERNAL_API_KEY` | Bearer key voor interne API | `openssl rand -base64 32` |
+| `DISCORD_TICKET_WEBHOOK_URL` | Discord webhook voor meldingen bij nieuwe tickets/projecten via API | `https://discord.com/api/webhooks/...` |
 | `OUTBOUND_EMAIL_WEBHOOK_URL` | Webhook voor uitgaande e-mailprovider | `https://automation.example.nl/webhook/send-email` |
 | `SEED_ADMIN_EMAIL` | Admin login email | `admin@jouwbedrijf.nl` |
 | `SEED_ADMIN_PASSWORD` | Admin login wachtwoord | kies iets sterk |
