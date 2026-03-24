@@ -108,15 +108,16 @@ async def update_proposal(
             changes[field] = {"old": str(old_value), "new": str(value)}
             setattr(proposal, field, value)
 
-    db.add(proposal)
-
     if changes:
+        await db.flush()
+        await db.refresh(proposal)
         await create_audit_log(
             db, "Proposal", proposal.id, "UPDATE",
             actor_user_id=current_user.id,
             metadata=changes,
             ip_address=get_client_ip(request),
         )
+
     return ProposalResponse.model_validate(proposal)
 
 

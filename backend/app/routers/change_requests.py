@@ -112,10 +112,10 @@ async def update_change_request(
             changes[field] = {"old": str(old_value), "new": str(value)}
             setattr(cr, field, value)
 
-    db.add(cr)
-
-    action = "STATUS_CHANGE" if "status" in changes else "UPDATE"
     if changes:
+        await db.flush()
+        await db.refresh(cr)
+        action = "STATUS_CHANGE" if "status" in changes else "UPDATE"
         await create_audit_log(
             db, "ChangeRequest", cr.id, action,
             actor_user_id=current_user.id,

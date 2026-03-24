@@ -91,9 +91,9 @@ async def update_user(
         if not body.is_active:
             await invalidate_all_user_tokens(user.id)
 
-    db.add(user)
-
     if changes:
+        await db.flush()
+        await db.refresh(user)
         await create_audit_log(
             db, "User", user.id, "UPDATE",
             actor_user_id=current_user.id,

@@ -160,7 +160,9 @@ async def update_invoice(
         invoice.vat_amount = vat_amount
         invoice.total_amount = total_amount
 
-    db.add(invoice)
+    if changes or "subtotal" in update_data or "vat_rate" in update_data:
+        await db.flush()
+        await db.refresh(invoice)
 
     if changes:
         await create_audit_log(

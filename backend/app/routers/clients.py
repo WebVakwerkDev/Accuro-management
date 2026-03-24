@@ -157,9 +157,9 @@ async def update_client(
             changes[field] = {"old": str(old_value), "new": str(value)}
             setattr(client, field, value)
 
-    db.add(client)
-
     if changes:
+        await db.flush()
+        await db.refresh(client)
         await create_audit_log(
             db, "Client", client.id, "UPDATE",
             actor_user_id=current_user.id,

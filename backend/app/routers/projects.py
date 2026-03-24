@@ -210,16 +210,17 @@ async def update_project(
             changes[field] = {"old": str(old_value), "new": str(value)}
             setattr(project, field, value)
 
-    db.add(project)
-
-    action = "STATUS_CHANGE" if "status" in changes else "UPDATE"
     if changes:
+        await db.flush()
+        await db.refresh(project)
+        action = "STATUS_CHANGE" if "status" in changes else "UPDATE"
         await create_audit_log(
             db, "Project", project.id, action,
             actor_user_id=current_user.id,
             metadata=changes,
             ip_address=get_client_ip(request),
         )
+
     return ProjectResponse.model_validate(project)
 
 
