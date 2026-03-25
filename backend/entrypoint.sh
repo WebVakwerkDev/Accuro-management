@@ -19,6 +19,11 @@ fi
 echo "Running Alembic migrations..."
 alembic upgrade head
 
-# Start the application
-echo "Starting uvicorn..."
-exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1
+# Start the requested process (default: uvicorn)
+if [ "$#" -gt 0 ]; then
+  echo "Starting $*..."
+  exec "$@"
+else
+  echo "Starting uvicorn..."
+  exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1
+fi
