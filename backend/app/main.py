@@ -31,6 +31,7 @@ from app.routers import (
     external,
     time_entries,
     expenses,
+    tasks,
 )
 
 logger = structlog.get_logger()
@@ -163,6 +164,7 @@ def create_app() -> FastAPI:
     app.include_router(external.router)
     app.include_router(time_entries.router)
     app.include_router(expenses.router)
+    app.include_router(tasks.router)
 
     return app
 

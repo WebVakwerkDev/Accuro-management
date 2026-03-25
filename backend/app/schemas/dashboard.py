@@ -11,3 +11,5 @@ class DashboardStats(BaseModel):
     projects_without_repos: int
     hours_this_year: Decimal
     hours_target: Decimal = Decimal("1225")
+    open_tasks: int
+    overdue_tasks: int

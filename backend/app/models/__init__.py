@@ -13,10 +13,11 @@ from app.models.business_settings import BusinessSettings
 from app.models.audit_log import AuditLog
 from app.models.time_entry import TimeEntry
 from app.models.expense import Expense
+from app.models.task import Task
 
 __all__ = [
     "User", "Client", "ProjectWorkspace", "CommunicationEntry",
     "ChangeRequest", "InternalNote", "Invoice", "ProposalDraft",
     "ProjectRepository", "ProjectLink", "AgentRun", "BusinessSettings",
-    "AuditLog", "TimeEntry", "Expense",
+    "AuditLog", "TimeEntry", "Expense", "Task",
 ]

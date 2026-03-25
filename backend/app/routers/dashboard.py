@@ -12,6 +12,7 @@ from app.models.invoice import Invoice, InvoiceStatus
 from app.models.audit_log import AuditLog
 from app.models.repository import ProjectRepository
 from app.models.time_entry import TimeEntry
+from app.models.task import Task, TaskStatus
 from app.schemas.dashboard import DashboardStats
 
 router = APIRouter(prefix="/api/v1/dashboard", tags=["dashboard"])
@@ -87,6 +88,22 @@ async def get_dashboard_stats(
     )
     hours_this_year = hours_result.scalar() or Decimal("0")
 
+    # Open tasks
+    open_tasks_result = await db.execute(
+        select(func.count(Task.id)).where(Task.status != TaskStatus.DONE.value)
+    )
+    open_tasks = open_tasks_result.scalar() or 0
+
+    # Overdue tasks
+    overdue_tasks_result = await db.execute(
+        select(func.count(Task.id)).where(
+            Task.status != TaskStatus.DONE.value,
+            Task.deadline.isnot(None),
+            Task.deadline < date.today(),
+        )
+    )
+    overdue_tasks = overdue_tasks_result.scalar() or 0
+
     return DashboardStats(
         projects_in_progress=projects_in_progress,
         projects_waiting_for_client=projects_waiting,
@@ -95,4 +112,6 @@ async def get_dashboard_stats(
         recent_activity=recent_activity,
         projects_without_repos=projects_without_repos,
         hours_this_year=hours_this_year,
+        open_tasks=open_tasks,
+        overdue_tasks=overdue_tasks,
     )

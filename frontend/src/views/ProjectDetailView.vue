@@ -55,6 +55,30 @@
       <p v-if="!communications.length" class="text-center text-sm text-gray-400 py-8">Geen communicatie</p>
     </div>
 
+    <!-- Tab: Taken -->
+    <div v-if="activeTab === 'tasks'" class="space-y-3">
+      <div class="flex gap-2">
+        <input v-model="newTaskTitle" placeholder="Nieuwe taak..." class="input flex-1" @keyup.enter="addTask" />
+        <Calendar v-model="newTaskDeadline" dateFormat="dd-mm-yy" placeholder="Deadline" showClear class="w-40" />
+        <button class="btn-primary" @click="addTask" :disabled="!newTaskTitle.trim()">Toevoegen</button>
+      </div>
+      <div v-for="task in projectTasks" :key="task.id" class="card p-4 flex items-center gap-3">
+        <button class="w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors"
+          :class="task.status === 'DONE' ? 'bg-green-500 border-green-500' : task.status === 'IN_PROGRESS' ? 'border-blue-400 bg-blue-50' : 'border-gray-300 hover:border-green-400'"
+          @click="toggleTaskDone(task)">
+          <i v-if="task.status === 'DONE'" class="pi pi-check text-white text-[10px]"></i>
+          <div v-else-if="task.status === 'IN_PROGRESS'" class="w-2 h-2 rounded-full bg-blue-400"></div>
+        </button>
+        <div class="flex-1 min-w-0">
+          <span class="text-sm text-gray-800" :class="task.status === 'DONE' ? 'line-through text-gray-400' : ''">{{ task.title }}</span>
+          <p v-if="task.description" class="text-xs text-gray-400 mt-0.5">{{ task.description }}</p>
+        </div>
+        <span v-if="task.deadline" class="text-xs font-mono shrink-0" :class="new Date(task.deadline) < new Date(new Date().toDateString()) && task.status !== 'DONE' ? 'text-red-500 font-medium' : 'text-gray-400'">{{ formatDate(task.deadline) }}</span>
+        <button class="btn-icon text-red-600" @click="deleteProjectTask(task)"><i class="pi pi-trash text-xs"></i></button>
+      </div>
+      <p v-if="!projectTasks.length" class="text-center text-sm text-gray-400 py-8">Geen taken</p>
+    </div>
+
     <!-- Tab: Notes -->
     <div v-if="activeTab === 'notes'" class="space-y-3">
       <div class="flex gap-2">
@@ -255,7 +279,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { projectsApi, communicationApi, notesApi, repositoriesApi, linksApi, invoicesApi, proposalsApi } from '@/api/services'
+import { projectsApi, communicationApi, notesApi, repositoriesApi, linksApi, invoicesApi, proposalsApi, tasksApi } from '@/api/services'
 import { useFormatting } from '@/composables/useFormatting'
 import { useToast } from 'primevue/usetoast'
 import { useErrorHandler } from '@/composables/useErrorHandler'
@@ -281,7 +305,10 @@ const repositories = ref<any[]>([])
 const links = ref<any[]>([])
 const invoices = ref<any[]>([])
 const proposals = ref<any[]>([])
+const projectTasks = ref<any[]>([])
 const newNote = ref('')
+const newTaskTitle = ref('')
+const newTaskDeadline = ref<Date | null>(null)
 
 const showCommDialog = ref(false)
 const showRepoDialog = ref(false)
@@ -315,6 +342,7 @@ const commTypes = [
 
 const tabs = computed(() => [
   { key: 'communication', label: 'Communicatie', count: communications.value.length },
+  { key: 'tasks', label: 'Taken', count: projectTasks.value.length },
   { key: 'notes', label: 'Notities', count: notes.value.length },
   { key: 'repositories', label: 'Repos', count: repositories.value.length },
   { key: 'links', label: 'Links', count: links.value.length },
@@ -334,13 +362,14 @@ onMounted(async () => {
 })
 
 async function loadAllTabs(projectId: string) {
-  const [comms, n, repos, lnks, invs, props] = await Promise.all([
+  const [comms, n, repos, lnks, invs, props, tks] = await Promise.all([
     communicationApi.list(projectId).catch(() => ({ data: [] })),
     notesApi.list(projectId).catch(() => ({ data: [] })),
     repositoriesApi.list(projectId).catch(() => ({ data: [] })),
     linksApi.list(projectId).catch(() => ({ data: [] })),
     invoicesApi.list({ project_id: projectId }).catch(() => ({ data: [] })),
     proposalsApi.listByProject(projectId).catch(() => ({ data: [] })),
+    tasksApi.list({ project_id: projectId }).catch(() => ({ data: [] })),
   ])
   communications.value = comms.data
   notes.value = n.data
@@ -348,6 +377,7 @@ async function loadAllTabs(projectId: string) {
   links.value = lnks.data
   invoices.value = invs.data
   proposals.value = props.data
+  projectTasks.value = tks.data
 }
 
 async function addCommunication() {
@@ -450,6 +480,33 @@ async function deleteInvoice(inv: any) {
     invoices.value = invoices.value.filter(i => i.id !== inv.id)
     showSuccess('Factuur verwijderd')
   } catch (err: any) { showError(err) }
+}
+
+async function addTask() {
+  if (!newTaskTitle.value.trim()) return
+  try {
+    await tasksApi.create({
+      title: newTaskTitle.value,
+      project_id: project.value.id,
+      deadline: newTaskDeadline.value ? fmtDate(newTaskDeadline.value) : null,
+    })
+    newTaskTitle.value = ''
+    newTaskDeadline.value = null
+    const { data } = await tasksApi.list({ project_id: project.value.id })
+    projectTasks.value = data
+  } catch (err: any) { showError(err) }
+}
+
+async function toggleTaskDone(task: any) {
+  const newStatus = task.status === 'DONE' ? 'TODO' : 'DONE'
+  await tasksApi.update(task.id, { status: newStatus })
+  const { data } = await tasksApi.list({ project_id: project.value.id })
+  projectTasks.value = data
+}
+
+async function deleteProjectTask(task: any) {
+  await tasksApi.delete(task.id)
+  projectTasks.value = projectTasks.value.filter(t => t.id !== task.id)
 }
 
 function openProposalDialog() {

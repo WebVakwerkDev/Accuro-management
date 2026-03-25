@@ -15,7 +15,7 @@
 
   <div v-else class="space-y-6 animate-slide-up">
     <!-- Stats -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+    <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
       <div v-for="stat in statCards" :key="stat.label" class="card-glow p-5">
         <p class="text-[11px] font-mono text-gray-500 uppercase tracking-wider">{{ stat.label }}</p>
         <div class="flex items-end justify-between mt-2">
@@ -120,6 +120,14 @@ const statCards = computed(() => [
     color: parseFloat(stats.value?.hours_this_year || 0) >= 1225 ? 'text-green-600' : 'text-gray-900',
     bgIcon: 'bg-purple-500/10',
     iconColor: '#a855f7',
+  },
+  {
+    label: 'Open taken',
+    value: stats.value?.open_tasks || 0,
+    icon: 'pi pi-check-square',
+    color: stats.value?.overdue_tasks > 0 ? 'text-red-600' : 'text-gray-900',
+    bgIcon: 'bg-indigo-500/10',
+    iconColor: '#6366f1',
   },
 ])
 

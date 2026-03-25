@@ -21,6 +21,7 @@ const router = createRouter({
         { path: 'projects/:id', name: 'project-detail', component: () => import('@/views/ProjectDetailView.vue'), meta: { roles: ['ADMIN', 'EMPLOYEE'] } },
         { path: 'invoices', name: 'invoices', component: () => import('@/views/InvoicesView.vue'), meta: { roles: ['ADMIN', 'FINANCE'] } },
         { path: 'proposals', name: 'proposals', component: () => import('@/views/ProposalsView.vue'), meta: { roles: ['ADMIN', 'EMPLOYEE'] } },
+        { path: 'tasks', name: 'tasks', component: () => import('@/views/TasksView.vue'), meta: { roles: ['ADMIN', 'EMPLOYEE'] } },
         { path: 'time-entries', name: 'time-entries', component: () => import('@/views/TimeEntriesView.vue'), meta: { roles: ['ADMIN', 'EMPLOYEE'] } },
         { path: 'expenses', name: 'expenses', component: () => import('@/views/ExpensesView.vue'), meta: { roles: ['ADMIN', 'FINANCE'] } },
         { path: 'finance', name: 'finance', component: () => import('@/views/FinanceView.vue'), meta: { roles: ['ADMIN', 'FINANCE'] } },
