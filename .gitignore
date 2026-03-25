@@ -55,8 +55,7 @@ venv/
 *.egg-info/
 
 # Alembic
-backend/alembic/versions/*.py
-!backend/alembic/versions/.gitkeep
+!backend/alembic/versions/*.py
 
 # Old files
 *.old
