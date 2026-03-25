@@ -55,28 +55,6 @@
       <p v-if="!communications.length" class="text-center text-sm text-gray-400 py-8">Geen communicatie</p>
     </div>
 
-    <!-- Tab: Change Requests -->
-    <div v-if="activeTab === 'change_requests'" class="space-y-3">
-      <div class="flex justify-end"><button class="btn-secondary text-xs" @click="showCRDialog = true"><i class="pi pi-plus text-xs"></i> Nieuw verzoek</button></div>
-      <div v-for="cr in changeRequests" :key="cr.id" class="card p-4">
-        <div class="flex items-start justify-between">
-          <div>
-            <div class="flex items-center gap-2">
-              <span :class="statusColor(cr.status)" class="badge text-[10px]">{{ cr.status.replace(/_/g, ' ') }}</span>
-              <span :class="statusColor(cr.impact)" class="badge text-[10px]">{{ cr.impact }}</span>
-              <span class="text-sm font-medium text-gray-800">{{ cr.title }}</span>
-            </div>
-            <p class="text-sm text-gray-500 mt-2">{{ cr.description }}</p>
-          </div>
-          <div class="flex gap-1 shrink-0 ml-4">
-            <button v-if="cr.status !== 'DONE'" class="btn-icon text-green-600" @click="closeCR(cr.id)" title="Sluiten"><i class="pi pi-check text-xs"></i></button>
-            <button v-if="cr.status === 'DONE'" class="btn-icon text-amber-600" @click="reopenCR(cr.id)" title="Heropenen"><i class="pi pi-refresh text-xs"></i></button>
-          </div>
-        </div>
-      </div>
-      <p v-if="!changeRequests.length" class="text-center text-sm text-gray-400 py-8">Geen change requests</p>
-    </div>
-
     <!-- Tab: Notes -->
     <div v-if="activeTab === 'notes'" class="space-y-3">
       <div class="flex gap-2">
@@ -140,6 +118,25 @@
       <p v-if="!invoices.length" class="text-center text-sm text-gray-400 py-8">Geen facturen voor dit project</p>
     </div>
 
+    <!-- Tab: Offertes -->
+    <div v-if="activeTab === 'proposals'" class="space-y-3">
+      <div class="flex justify-end">
+        <button class="btn-secondary text-xs" @click="openProposalDialog"><i class="pi pi-plus text-xs"></i> Nieuwe offerte</button>
+      </div>
+      <div v-for="prop in proposals" :key="prop.id" class="card p-4 flex items-center justify-between">
+        <div class="flex items-center gap-4">
+          <span class="text-sm font-medium text-gray-800">{{ prop.title }}</span>
+          <span :class="statusColor(prop.status)" class="badge text-[10px]">{{ prop.status }}</span>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="font-mono text-sm font-medium text-gray-800">{{ formatCurrency(prop.amount) }}</span>
+          <button class="btn-icon" @click="downloadProposalPdf(prop)" title="PDF"><i class="pi pi-file-pdf text-xs"></i></button>
+          <button class="btn-icon text-red-600" @click="deleteProposal(prop)" title="Verwijderen"><i class="pi pi-trash text-xs"></i></button>
+        </div>
+      </div>
+      <p v-if="!proposals.length" class="text-center text-sm text-gray-400 py-8">Geen offertes voor dit project</p>
+    </div>
+
     <!-- Communication Dialog -->
     <Dialog v-model:visible="showCommDialog" header="Communicatie toevoegen" modal :style="{ width: '520px' }">
       <form @submit.prevent="addCommunication" class="space-y-4">
@@ -156,17 +153,20 @@
       </form>
     </Dialog>
 
-    <!-- Change Request Dialog -->
-    <Dialog v-model:visible="showCRDialog" header="Nieuw change request" modal :style="{ width: '520px' }">
-      <form @submit.prevent="addChangeRequest" class="space-y-4">
-        <div><label class="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wider">Titel</label><input v-model="crForm.title" class="input" required /></div>
-        <div><label class="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wider">Beschrijving</label><textarea v-model="crForm.description" class="input min-h-[80px]" required /></div>
+    <!-- Proposal Dialog -->
+    <Dialog v-model:visible="showProposalDialog" header="Nieuwe offerte" modal :style="{ width: '520px' }">
+      <form @submit.prevent="createProposal" class="space-y-4">
+        <div><label class="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wider">Titel</label><input v-model="proposalForm.title" class="input" required /></div>
         <div class="grid grid-cols-2 gap-4">
-          <div><label class="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wider">Bron</label><Dropdown v-model="crForm.source_type" :options="[{label:'E-mail',value:'EMAIL'},{label:'Telefoon',value:'CALL'},{label:'Formulier',value:'WEBSITE_FORM'},{label:'Intern',value:'INTERNAL'}]" optionLabel="label" optionValue="value" class="w-full" /></div>
-          <div><label class="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wider">Impact</label><Dropdown v-model="crForm.impact" :options="[{label:'Klein',value:'SMALL'},{label:'Gemiddeld',value:'MEDIUM'},{label:'Groot',value:'LARGE'}]" optionLabel="label" optionValue="value" class="w-full" /></div>
+          <div><label class="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wider">Ontvanger naam</label><input v-model="proposalForm.recipient_name" class="input" required /></div>
+          <div><label class="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wider">Ontvanger e-mail</label><input v-model="proposalForm.recipient_email" class="input" type="email" required /></div>
+          <div><label class="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wider">Bedrag</label><InputNumber v-model="proposalForm.amount" mode="currency" currency="EUR" locale="nl-NL" class="w-full" /></div>
+          <div><label class="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wider">Levertijd</label><input v-model="proposalForm.delivery_time" class="input" placeholder="Bijv. 4-6 weken" /></div>
         </div>
+        <div><label class="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wider">Samenvatting</label><textarea v-model="proposalForm.summary" class="input min-h-[60px]" /></div>
+        <div><label class="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wider">Scope</label><textarea v-model="proposalForm.scope" class="input min-h-[60px]" /></div>
         <div class="flex justify-end gap-2 pt-3 border-t border-gray-200">
-          <button type="button" class="btn-secondary" @click="showCRDialog = false">Annuleren</button>
+          <button type="button" class="btn-secondary" @click="showProposalDialog = false">Annuleren</button>
           <button type="submit" class="btn-primary" :disabled="saving">Aanmaken</button>
         </div>
       </form>
@@ -255,7 +255,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { projectsApi, communicationApi, changeRequestsApi, notesApi, repositoriesApi, linksApi, invoicesApi } from '@/api/services'
+import { projectsApi, communicationApi, notesApi, repositoriesApi, linksApi, invoicesApi, proposalsApi } from '@/api/services'
 import { useFormatting } from '@/composables/useFormatting'
 import { useToast } from 'primevue/usetoast'
 import { useErrorHandler } from '@/composables/useErrorHandler'
@@ -276,23 +276,23 @@ const saving = ref(false)
 const activeTab = ref('communication')
 
 const communications = ref<any[]>([])
-const changeRequests = ref<any[]>([])
 const notes = ref<any[]>([])
 const repositories = ref<any[]>([])
 const links = ref<any[]>([])
 const invoices = ref<any[]>([])
+const proposals = ref<any[]>([])
 const newNote = ref('')
 
 const showCommDialog = ref(false)
-const showCRDialog = ref(false)
 const showRepoDialog = ref(false)
 const showLinkDialog = ref(false)
 const showEditDialog = ref(false)
 const showInvoiceDialog = ref(false)
+const showProposalDialog = ref(false)
 
 const commForm = ref<any>({ type: 'EMAIL', subject: '', content: '', occurred_at: new Date() })
-const crForm = ref<any>({ title: '', description: '', source_type: 'INTERNAL', impact: 'MEDIUM' })
 const repoForm = ref<any>({ repo_name: '', repo_url: '', default_branch: 'main' })
+const proposalForm = ref<any>({ title: '', recipient_name: '', recipient_email: '', amount: 0, delivery_time: '', summary: '', scope: '' })
 const linkForm = ref<any>({ label: '', url: '', description: '' })
 const editForm = ref<any>({})
 const invoiceForm = ref<any>({ subtotal: 0, vat_rate: 21, issue_date: new Date(), due_date: new Date(Date.now() + 30 * 86400000), description: '', notes: '' })
@@ -315,10 +315,10 @@ const commTypes = [
 
 const tabs = computed(() => [
   { key: 'communication', label: 'Communicatie', count: communications.value.length },
-  { key: 'change_requests', label: 'Change Requests', count: changeRequests.value.length },
   { key: 'notes', label: 'Notities', count: notes.value.length },
   { key: 'repositories', label: 'Repos', count: repositories.value.length },
   { key: 'links', label: 'Links', count: links.value.length },
+  { key: 'proposals', label: 'Offertes', count: proposals.value.length },
   { key: 'invoices', label: 'Facturen', count: invoices.value.length },
 ])
 
@@ -334,20 +334,20 @@ onMounted(async () => {
 })
 
 async function loadAllTabs(projectId: string) {
-  const [comms, crs, n, repos, lnks, invs] = await Promise.all([
+  const [comms, n, repos, lnks, invs, props] = await Promise.all([
     communicationApi.list(projectId).catch(() => ({ data: [] })),
-    changeRequestsApi.list(projectId).catch(() => ({ data: [] })),
     notesApi.list(projectId).catch(() => ({ data: [] })),
     repositoriesApi.list(projectId).catch(() => ({ data: [] })),
     linksApi.list(projectId).catch(() => ({ data: [] })),
     invoicesApi.list({ project_id: projectId }).catch(() => ({ data: [] })),
+    proposalsApi.listByProject(projectId).catch(() => ({ data: [] })),
   ])
   communications.value = comms.data
-  changeRequests.value = crs.data
   notes.value = n.data
   repositories.value = repos.data
   links.value = lnks.data
   invoices.value = invs.data
+  proposals.value = props.data
 }
 
 async function addCommunication() {
@@ -360,20 +360,6 @@ async function addCommunication() {
   } catch (err: any) { showError(err) }
   saving.value = false
 }
-
-async function addChangeRequest() {
-  saving.value = true
-  try {
-    await changeRequestsApi.create(project.value.id, crForm.value)
-    showCRDialog.value = false; crForm.value = { title: '', description: '', source_type: 'INTERNAL', impact: 'MEDIUM' }
-    const { data } = await changeRequestsApi.list(project.value.id); changeRequests.value = data
-    showSuccess('Aangemaakt')
-  } catch (err: any) { showError(err) }
-  saving.value = false
-}
-
-async function closeCR(id: string) { await changeRequestsApi.close(id); const { data } = await changeRequestsApi.list(project.value.id); changeRequests.value = data }
-async function reopenCR(id: string) { await changeRequestsApi.reopen(id); const { data } = await changeRequestsApi.list(project.value.id); changeRequests.value = data }
 
 async function addNote() {
   if (!newNote.value.trim()) return
@@ -463,6 +449,40 @@ async function deleteInvoice(inv: any) {
     await invoicesApi.delete(inv.id)
     invoices.value = invoices.value.filter(i => i.id !== inv.id)
     showSuccess('Factuur verwijderd')
+  } catch (err: any) { showError(err) }
+}
+
+function openProposalDialog() {
+  proposalForm.value = { title: '', recipient_name: '', recipient_email: '', amount: 0, delivery_time: '', summary: '', scope: '' }
+  showProposalDialog.value = true
+}
+
+async function createProposal() {
+  saving.value = true
+  try {
+    await proposalsApi.create({
+      client_id: project.value.client_id,
+      project_id: project.value.id,
+      ...proposalForm.value,
+    })
+    showProposalDialog.value = false
+    const { data } = await proposalsApi.listByProject(project.value.id)
+    proposals.value = data
+    showSuccess('Offerte aangemaakt')
+  } catch (err: any) { showError(err) }
+  saving.value = false
+}
+
+async function downloadProposalPdf(prop: any) {
+  try { const { data } = await proposalsApi.downloadPdf(prop.id); downloadBlob(data, `offerte-${prop.title}.pdf`) }
+  catch (err: any) { showError(err, 'PDF genereren mislukt') }
+}
+
+async function deleteProposal(prop: any) {
+  try {
+    await proposalsApi.delete(prop.id)
+    proposals.value = proposals.value.filter(p => p.id !== prop.id)
+    showSuccess('Offerte verwijderd')
   } catch (err: any) { showError(err) }
 }
 </script>

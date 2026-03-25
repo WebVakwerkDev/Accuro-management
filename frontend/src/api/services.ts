@@ -47,16 +47,6 @@ export const communicationApi = {
   delete: (id: string) => api.delete(`/communications/${id}`),
 }
 
-// Change Requests
-export const changeRequestsApi = {
-  list: (projectId: string) => api.get(`/projects/${projectId}/change-requests`),
-  get: (id: string) => api.get(`/change-requests/${id}`),
-  create: (projectId: string, data: any) => api.post(`/projects/${projectId}/change-requests`, data),
-  update: (id: string, data: any) => api.patch(`/change-requests/${id}`, data),
-  reopen: (id: string) => api.post(`/change-requests/${id}/reopen`),
-  close: (id: string) => api.post(`/change-requests/${id}/close`),
-}
-
 // Notes
 export const notesApi = {
   list: (projectId: string) => api.get(`/projects/${projectId}/notes`),

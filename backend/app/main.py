@@ -19,7 +19,6 @@ from app.routers import (
     clients,
     projects,
     communication,
-    change_requests,
     notes,
     invoices,
     proposals,
@@ -152,7 +151,6 @@ def create_app() -> FastAPI:
     app.include_router(clients.router)
     app.include_router(projects.router)
     app.include_router(communication.router)
-    app.include_router(change_requests.router)
     app.include_router(notes.router)
     app.include_router(invoices.router)
     app.include_router(proposals.router)
