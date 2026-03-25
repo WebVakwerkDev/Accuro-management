@@ -8,7 +8,7 @@
       </div>
       <div class="card px-5 py-4">
         <div class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Doel (ZZP-aftrek)</div>
-        <div class="text-2xl font-semibold text-gray-800 font-mono">1.225</div>
+        <div class="text-2xl font-semibold text-gray-800 font-mono">1225</div>
       </div>
       <div class="card px-5 py-4">
         <div class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Nog nodig</div>

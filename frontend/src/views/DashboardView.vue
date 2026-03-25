@@ -115,7 +115,7 @@ const statCards = computed(() => [
   },
   {
     label: 'Uren dit jaar',
-    value: `${stats.value?.hours_this_year || 0} / 1.225`,
+    value: `${stats.value?.hours_this_year || 0} / 1225`,
     icon: 'pi pi-stopwatch',
     color: parseFloat(stats.value?.hours_this_year || 0) >= 1225 ? 'text-green-600' : 'text-gray-900',
     bgIcon: 'bg-purple-500/10',
