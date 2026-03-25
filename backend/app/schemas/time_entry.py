@@ -1,13 +1,14 @@
 from pydantic import BaseModel, field_validator
 from decimal import Decimal
-from datetime import date, datetime
+from datetime import date as DateType, datetime
+from typing import Optional
 
 
 class TimeEntryCreate(BaseModel):
     project_id: str
-    date: date
+    date: DateType
     hours: Decimal
-    description: str | None = None
+    description: Optional[str] = None
 
     @field_validator("hours")
     @classmethod
@@ -18,14 +19,14 @@ class TimeEntryCreate(BaseModel):
 
 
 class TimeEntryUpdate(BaseModel):
-    project_id: str | None = None
-    date: date | None = None
-    hours: Decimal | None = None
-    description: str | None = None
+    project_id: Optional[str] = None
+    date: Optional[DateType] = None
+    hours: Optional[Decimal] = None
+    description: Optional[str] = None
 
     @field_validator("hours")
     @classmethod
-    def validate_hours(cls, v: Decimal | None) -> Decimal | None:
+    def validate_hours(cls, v: Optional[Decimal]) -> Optional[Decimal]:
         if v is not None and (v <= 0 or v > 24):
             raise ValueError("Hours must be between 0 and 24")
         return v
@@ -35,12 +36,12 @@ class TimeEntryResponse(BaseModel):
     id: str
     user_id: str
     project_id: str
-    date: date
+    date: DateType
     hours: Decimal
-    description: str | None
+    description: Optional[str]
     created_at: datetime
     updated_at: datetime
-    project_name: str | None = None
+    project_name: Optional[str] = None
 
     model_config = {"from_attributes": True}
 

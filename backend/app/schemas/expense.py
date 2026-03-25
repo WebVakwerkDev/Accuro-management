@@ -1,14 +1,15 @@
 from pydantic import BaseModel, field_validator
 from decimal import Decimal
-from datetime import date, datetime
+from datetime import date as DateType, datetime
+from typing import Optional
 
 
 class ExpenseCreate(BaseModel):
     description: str
-    invoice_number: str | None = None
+    invoice_number: Optional[str] = None
     amount_incl_vat: Decimal
     vat_rate: Decimal = Decimal("21")
-    date: date
+    date: DateType
 
     @field_validator("amount_incl_vat")
     @classmethod
@@ -26,22 +27,22 @@ class ExpenseCreate(BaseModel):
 
 
 class ExpenseUpdate(BaseModel):
-    description: str | None = None
-    invoice_number: str | None = None
-    amount_incl_vat: Decimal | None = None
-    vat_rate: Decimal | None = None
-    date: date | None = None
+    description: Optional[str] = None
+    invoice_number: Optional[str] = None
+    amount_incl_vat: Optional[Decimal] = None
+    vat_rate: Optional[Decimal] = None
+    date: Optional[DateType] = None
 
     @field_validator("amount_incl_vat")
     @classmethod
-    def validate_amount(cls, v: Decimal | None) -> Decimal | None:
+    def validate_amount(cls, v: Optional[Decimal]) -> Optional[Decimal]:
         if v is not None and v <= 0:
             raise ValueError("Amount must be positive")
         return v
 
     @field_validator("vat_rate")
     @classmethod
-    def validate_vat_rate(cls, v: Decimal | None) -> Decimal | None:
+    def validate_vat_rate(cls, v: Optional[Decimal]) -> Optional[Decimal]:
         if v is not None and v not in (Decimal("0"), Decimal("9"), Decimal("21")):
             raise ValueError("VAT rate must be 0, 9, or 21")
         return v
@@ -50,12 +51,12 @@ class ExpenseUpdate(BaseModel):
 class ExpenseResponse(BaseModel):
     id: str
     description: str
-    invoice_number: str | None
+    invoice_number: Optional[str]
     amount_incl_vat: Decimal
     vat_rate: Decimal
     amount_excl_vat: Decimal
     vat_amount: Decimal
-    date: date
+    date: DateType
     created_at: datetime
     updated_at: datetime
 

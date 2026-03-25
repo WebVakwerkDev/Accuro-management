@@ -1,32 +1,33 @@
 from pydantic import BaseModel
-from datetime import date, datetime
+from datetime import date as DateType, datetime
+from typing import Optional
 
 
 class TaskCreate(BaseModel):
     title: str
-    description: str | None = None
-    project_id: str | None = None
-    deadline: date | None = None
+    description: Optional[str] = None
+    project_id: Optional[str] = None
+    deadline: Optional[DateType] = None
 
 
 class TaskUpdate(BaseModel):
-    title: str | None = None
-    description: str | None = None
-    project_id: str | None = None
-    status: str | None = None
-    deadline: date | None = None
+    title: Optional[str] = None
+    description: Optional[str] = None
+    project_id: Optional[str] = None
+    status: Optional[str] = None
+    deadline: Optional[DateType] = None
 
 
 class TaskResponse(BaseModel):
     id: str
     title: str
-    description: str | None
-    project_id: str | None
-    assigned_to_user_id: str | None
+    description: Optional[str]
+    project_id: Optional[str]
+    assigned_to_user_id: Optional[str]
     status: str
-    deadline: date | None
+    deadline: Optional[DateType]
     created_at: datetime
     updated_at: datetime
-    project_name: str | None = None
+    project_name: Optional[str] = None
 
     model_config = {"from_attributes": True}
