@@ -41,10 +41,21 @@ class Settings(BaseSettings):
     GITHUB_TOKEN: str = ""
     DISCORD_TICKET_WEBHOOK_URL: str = ""
 
-    # Seed
+    # Seed — admin user
     SEED_ADMIN_EMAIL: str = "admin@example.com"
     SEED_ADMIN_PASSWORD: str = ""
     SEED_ADMIN_NAME: str = "Admin"
+
+    # Seed — business settings (only applied once if no settings exist yet)
+    SEED_COMPANY_NAME: str = ""
+    SEED_COMPANY_EMAIL: str = ""
+    SEED_COMPANY_PHONE: str = ""
+    SEED_COMPANY_ADDRESS: str = ""
+    SEED_COMPANY_WEBSITE: str = ""
+    SEED_COMPANY_KVK: str = ""
+    SEED_COMPANY_VAT: str = ""
+    SEED_COMPANY_IBAN: str = ""
+    SEED_COMPANY_ACCOUNT_HOLDER: str = ""
 
     # Computed
     SENSITIVE_FIELDS: ClassVar[set[str]] = {

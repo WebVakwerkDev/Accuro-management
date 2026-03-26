@@ -4,19 +4,64 @@
       <div class="px-5 py-4 border-b border-gray-200"><h2 class="text-sm font-medium text-gray-800">Bedrijfsinstellingen</h2></div>
       <form @submit.prevent="saveSettings" class="p-5 space-y-4">
         <div class="grid grid-cols-2 gap-4">
-          <div><label class="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wider">Bedrijfsnaam</label><input v-model="settings.company_name" class="input" required /></div>
-          <div><label class="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wider">E-mailadres</label><input v-model="settings.email" type="email" class="input" required /></div>
-          <div><label class="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wider">Telefoon</label><input v-model="settings.phone" class="input" /></div>
-          <div><label class="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wider">Website</label><input v-model="settings.website_url" class="input" /></div>
-          <div class="col-span-2"><label class="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wider">Adres</label><textarea v-model="settings.address" class="input min-h-[60px]" /></div>
-          <div><label class="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wider">KVK-nummer</label><input v-model="settings.kvk_number" class="input font-mono" /></div>
-          <div><label class="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wider">BTW-nummer</label><input v-model="settings.vat_number" class="input font-mono" /></div>
-          <div><label class="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wider">IBAN</label><input v-model="settings.iban" class="input font-mono" /></div>
-          <div><label class="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wider">T.n.v.</label><input v-model="settings.account_holder_name" class="input" placeholder="Naam rekeninghouder" /></div>
-          <div><label class="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wider">Standaard BTW (%)</label><InputNumber v-model="settings.default_vat_rate" suffix="%" class="w-full" /></div>
-          <div><label class="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wider">Betalingstermijn (dagen)</label><InputNumber v-model="settings.payment_term_days" class="w-full" /></div>
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wider">Bedrijfsnaam <span class="text-red-400">*</span></label>
+            <input v-model="settings.company_name" class="input" :class="{ 'border-red-400': errors.company_name }" @blur="validateField('company_name')" />
+            <p v-if="errors.company_name" class="field-error">{{ errors.company_name }}</p>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wider">E-mailadres <span class="text-red-400">*</span></label>
+            <input v-model="settings.email" type="email" class="input" :class="{ 'border-red-400': errors.email }" @blur="validateField('email')" />
+            <p v-if="errors.email" class="field-error">{{ errors.email }}</p>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wider">Telefoon</label>
+            <input v-model="settings.phone" class="input font-mono" placeholder="0612345678 of +31612345678" :class="{ 'border-red-400': errors.phone }" @blur="validateField('phone')" />
+            <p v-if="errors.phone" class="field-error">{{ errors.phone }}</p>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wider">Website</label>
+            <input v-model="settings.website_url" class="input font-mono" placeholder="https://jouwbedrijf.nl" :class="{ 'border-red-400': errors.website_url }" @blur="validateField('website_url')" />
+            <p v-if="errors.website_url" class="field-error">{{ errors.website_url }}</p>
+          </div>
+          <div class="col-span-2">
+            <label class="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wider">Adres</label>
+            <textarea v-model="settings.address" class="input min-h-[60px]" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wider">KVK-nummer</label>
+            <input v-model="settings.kvk_number" class="input font-mono" placeholder="12345678" maxlength="8" :class="{ 'border-red-400': errors.kvk_number }" @blur="validateField('kvk_number')" />
+            <p v-if="errors.kvk_number" class="field-error">{{ errors.kvk_number }}</p>
+            <p v-else class="text-[10px] text-gray-400 mt-1">8 cijfers</p>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wider">BTW-nummer</label>
+            <input v-model="settings.vat_number" class="input font-mono" placeholder="NL123456789B01" maxlength="14" :class="{ 'border-red-400': errors.vat_number }" @blur="validateField('vat_number')" @input="settings.vat_number = settings.vat_number?.toUpperCase()" />
+            <p v-if="errors.vat_number" class="field-error">{{ errors.vat_number }}</p>
+            <p v-else class="text-[10px] text-gray-400 mt-1">NL999999999B99</p>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wider">IBAN</label>
+            <input v-model="settings.iban" class="input font-mono" placeholder="NL91ABNA0417164300" :class="{ 'border-red-400': errors.iban }" @blur="normaliseIban(); validateField('iban')" @input="settings.iban = settings.iban?.toUpperCase()" />
+            <p v-if="errors.iban" class="field-error">{{ errors.iban }}</p>
+            <p v-else class="text-[10px] text-gray-400 mt-1">Spaties worden automatisch verwijderd</p>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wider">Rekeninghouder</label>
+            <input v-model="settings.account_holder_name" class="input" placeholder="Naam rekeninghouder" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wider">Standaard BTW (%)</label>
+            <InputNumber v-model="settings.default_vat_rate" suffix="%" class="w-full" :min="0" :max="100" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wider">Betalingstermijn (dagen)</label>
+            <InputNumber v-model="settings.payment_term_days" class="w-full" :min="1" :max="365" />
+          </div>
         </div>
-        <div class="flex justify-end pt-3 border-t border-gray-200"><button type="submit" class="btn-primary" :disabled="savingSettings">Opslaan</button></div>
+        <div class="flex justify-end pt-3 border-t border-gray-200">
+          <button type="submit" class="btn-primary" :disabled="savingSettings">Opslaan</button>
+        </div>
       </form>
     </div>
 
@@ -75,6 +120,7 @@ const auth = useAuthStore()
 const { showError, showSuccess } = useErrorHandler()
 const confirm = useConfirm()
 const settings = ref<any>({ company_name: '', email: '', phone: '', website_url: '', address: '', kvk_number: '', vat_number: '', iban: '', account_holder_name: '', default_vat_rate: 21, payment_term_days: 30, default_quote_valid_days: 30, default_price_label: 'Projectprijs' })
+const errors = ref<Record<string, string>>({})
 const users = ref<any[]>([])
 const savingSettings = ref(false)
 const showUserDialog = ref(false)
@@ -88,7 +134,80 @@ onMounted(async () => {
   try { const { data } = await usersApi.list(); users.value = data } catch {}
 })
 
-async function saveSettings() { savingSettings.value = true; try { await settingsApi.update(settings.value); showSuccess('Opgeslagen') } catch (err: any) { showError(err) }; savingSettings.value = false }
+function normaliseIban() {
+  if (settings.value.iban) {
+    settings.value.iban = settings.value.iban.replace(/\s/g, '').toUpperCase()
+  }
+}
+
+function validateField(field: string): boolean {
+  const v = settings.value[field]
+  errors.value[field] = ''
+
+  if (field === 'company_name' && !v?.trim()) {
+    errors.value.company_name = 'Bedrijfsnaam is verplicht'
+    return false
+  }
+  if (field === 'email') {
+    if (!v?.trim()) { errors.value.email = 'E-mailadres is verplicht'; return false }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) { errors.value.email = 'Ongeldig e-mailadres'; return false }
+  }
+  if (field === 'kvk_number' && v) {
+    if (!/^\d{8}$/.test(v)) { errors.value.kvk_number = 'KVK-nummer moet exact 8 cijfers zijn'; return false }
+  }
+  if (field === 'vat_number' && v) {
+    const n = v.replace(/[.\s]/g, '').toUpperCase()
+    if (!/^NL\d{9}B\d{2}$/.test(n)) { errors.value.vat_number = 'Gebruik opmaak NL999999999B99'; return false }
+  }
+  if (field === 'iban' && v) {
+    const n = v.replace(/\s/g, '').toUpperCase()
+    if (!/^[A-Z]{2}\d{2}[A-Z0-9]{4,30}$/.test(n)) { errors.value.iban = 'Ongeldig IBAN-formaat'; return false }
+    if (!ibanMod97(n)) { errors.value.iban = 'IBAN-controlegetal klopt niet'; return false }
+  }
+  if (field === 'phone' && v) {
+    const stripped = v.replace(/[\s\-()]/g, '')
+    if (!/^(\+31[1-9]\d{6,9}|0[1-9]\d{8,9})$/.test(stripped)) {
+      errors.value.phone = 'Gebruik bijv. 0612345678 of +31612345678'
+      return false
+    }
+  }
+  if (field === 'website_url' && v) {
+    if (!/^https?:\/\//.test(v)) { errors.value.website_url = 'Website moet beginnen met https:// of http://'; return false }
+  }
+  return true
+}
+
+function ibanMod97(iban: string): boolean {
+  const rearranged = iban.slice(4) + iban.slice(0, 4)
+  const numeric = rearranged.split('').map(c => c >= 'A' ? String(c.charCodeAt(0) - 55) : c).join('')
+  let remainder = 0
+  for (const chunk of numeric.match(/.{1,9}/g) ?? []) {
+    remainder = Number(String(remainder) + chunk) % 97
+  }
+  return remainder === 1
+}
+
+function validateAll(): boolean {
+  return ['company_name', 'email', 'kvk_number', 'vat_number', 'iban', 'phone', 'website_url']
+    .map(f => validateField(f))
+    .every(Boolean)
+}
+
+async function saveSettings() {
+  if (!validateAll()) return
+  savingSettings.value = true
+  try {
+    await settingsApi.update(settings.value)
+    showSuccess('Opgeslagen')
+  } catch (err: any) {
+    if (err.response?.status === 422) {
+      const detail = err.response.data?.detail
+      if (Array.isArray(detail)) detail.forEach((e: any) => { errors.value[e.loc?.slice(-1)[0]] = e.msg })
+      else showError(err)
+    } else { showError(err) }
+  }
+  savingSettings.value = false
+}
 
 async function createUser() {
   savingUser.value = true

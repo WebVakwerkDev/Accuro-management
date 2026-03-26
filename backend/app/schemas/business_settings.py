@@ -3,6 +3,13 @@ from decimal import Decimal
 import re
 
 
+def _iban_mod97(iban: str) -> bool:
+    """ISO 7064 Mod 97-10 check for IBAN."""
+    rearranged = iban[4:] + iban[:4]
+    numeric = "".join(str(ord(c) - 55) if c.isalpha() else c for c in rearranged)
+    return int(numeric) % 97 == 1
+
+
 class BusinessSettingsUpdate(BaseModel):
     company_name: str
     address: str | None = None
@@ -25,22 +32,60 @@ class BusinessSettingsUpdate(BaseModel):
     @field_validator("kvk_number")
     @classmethod
     def validate_kvk(cls, v: str | None) -> str | None:
-        if v and not re.match(r"^\d{8}$", v):
-            raise ValueError("KVK number must be 8 digits")
+        if v and not re.fullmatch(r"\d{8}", v):
+            raise ValueError("KVK-nummer moet exact 8 cijfers zijn")
+        return v
+
+    @field_validator("vat_number")
+    @classmethod
+    def validate_vat_number(cls, v: str | None) -> str | None:
+        if v:
+            normalised = v.replace(".", "").replace(" ", "").upper()
+            if not re.fullmatch(r"NL\d{9}B\d{2}", normalised):
+                raise ValueError("BTW-nummer moet de opmaak NL999999999B99 hebben")
+            return normalised
+        return v
+
+    @field_validator("iban")
+    @classmethod
+    def validate_iban(cls, v: str | None) -> str | None:
+        if v:
+            normalised = v.replace(" ", "").upper()
+            if not re.fullmatch(r"[A-Z]{2}\d{2}[A-Z0-9]{4,30}", normalised):
+                raise ValueError("Ongeldig IBAN-formaat")
+            if not _iban_mod97(normalised):
+                raise ValueError("IBAN-controlegetal klopt niet")
+            return normalised
+        return v
+
+    @field_validator("phone")
+    @classmethod
+    def validate_phone(cls, v: str | None) -> str | None:
+        if v:
+            stripped = re.sub(r"[\s\-()]", "", v)
+            if not re.fullmatch(r"(\+31[1-9]\d{6,9}|0[1-9]\d{8,9})", stripped):
+                raise ValueError("Voer een geldig Nederlands telefoonnummer in (bijv. 0612345678 of +31612345678)")
+        return v
+
+    @field_validator("website_url")
+    @classmethod
+    def validate_website(cls, v: str | None) -> str | None:
+        if v and not re.match(r"^https?://", v):
+            raise ValueError("Website moet beginnen met https:// of http://")
         return v
 
     @field_validator("payment_term_days", "default_quote_valid_days")
     @classmethod
     def validate_days(cls, v: int) -> int:
         if v < 1 or v > 365:
-            raise ValueError("Must be between 1 and 365")
+            raise ValueError("Moet tussen 1 en 365 liggen")
         return v
 
     @field_validator("default_vat_rate")
     @classmethod
     def validate_vat(cls, v: Decimal) -> Decimal:
         if v < 0 or v > 100:
-            raise ValueError("VAT rate must be between 0 and 100")
+            raise ValueError("BTW-tarief moet tussen 0 en 100 liggen")
         return v
 
 

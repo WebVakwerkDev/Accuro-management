@@ -44,6 +44,7 @@ async def lifespan(app: FastAPI):
 
     # Seed admin user on first startup
     await _seed_admin_user()
+    await _seed_business_settings()
 
     yield
 
@@ -75,6 +76,36 @@ async def _seed_admin_user():
         db.add(admin)
         await db.commit()
         logger.info("admin_user_seeded", email=settings.SEED_ADMIN_EMAIL)
+
+
+async def _seed_business_settings():
+    """Seed initial business settings from env vars if none exist yet."""
+    from app.models.business_settings import BusinessSettings
+
+    settings = get_settings()
+    if not settings.SEED_COMPANY_NAME or not settings.SEED_COMPANY_EMAIL:
+        return
+
+    async with async_session() as db:
+        result = await db.execute(select(BusinessSettings).where(BusinessSettings.id == 1))
+        if result.scalar_one_or_none() is not None:
+            return
+
+        bs = BusinessSettings(
+            id=1,
+            company_name=settings.SEED_COMPANY_NAME,
+            email=settings.SEED_COMPANY_EMAIL,
+            phone=settings.SEED_COMPANY_PHONE or None,
+            address=settings.SEED_COMPANY_ADDRESS or None,
+            website_url=settings.SEED_COMPANY_WEBSITE or None,
+            kvk_number=settings.SEED_COMPANY_KVK or None,
+            vat_number=settings.SEED_COMPANY_VAT or None,
+            iban=settings.SEED_COMPANY_IBAN or None,
+            account_holder_name=settings.SEED_COMPANY_ACCOUNT_HOLDER or None,
+        )
+        db.add(bs)
+        await db.commit()
+        logger.info("business_settings_seeded", company=settings.SEED_COMPANY_NAME)
 
 
 def create_app() -> FastAPI:
