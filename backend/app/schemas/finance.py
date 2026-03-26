@@ -77,6 +77,12 @@ class TaxYearSettingsUpdate(BaseModel):
     ib_bracket_2: Decimal | None = None
 
 
+class KostenCategorie(BaseModel):
+    categorie: str
+    bedrag: Decimal
+    aantal: int
+
+
 # IB calculation per schijf
 class IBSchijf(BaseModel):
     label: str
@@ -110,3 +116,4 @@ class TaxSummary(BaseModel):
     totaal_te_reserveren: Decimal
     # Settings used
     settings: TaxYearSettingsResponse
+    kosten_per_categorie: list[KostenCategorie] = []

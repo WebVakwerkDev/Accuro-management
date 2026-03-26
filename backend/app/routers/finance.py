@@ -20,6 +20,7 @@ from app.models.tax_year_settings import TaxYearSettings
 from app.schemas.finance import (
     FinanceOverview, VatBreakdown, QuarterVatSummary, MonthlyReport, YearlyReport,
     TaxYearSettingsResponse, TaxYearSettingsUpdate, TaxSummary, IBSchijf,
+    KostenCategorie,
 )
 
 router = APIRouter(prefix="/api/v1/finance", tags=["finance"])
@@ -207,6 +208,21 @@ async def get_tax_summary(
     )
     kosten = kosten_result.scalar() or Decimal("0")
 
+    # Kosten per categorie
+    cat_result = await db.execute(
+        select(
+            func.coalesce(Expense.category, "Overig").label("categorie"),
+            func.sum(Expense.amount_excl_vat).label("bedrag"),
+            func.count().label("aantal"),
+        )
+        .where(extract("year", Expense.date) == year)
+        .group_by(func.coalesce(Expense.category, "Overig"))
+    )
+    kosten_per_categorie = [
+        KostenCategorie(categorie=r.categorie, bedrag=r.bedrag or Decimal("0"), aantal=r.aantal)
+        for r in cat_result.all()
+    ]
+
     brutowinst = omzet - kosten
 
     # Aftrekposten
@@ -266,6 +282,7 @@ async def get_tax_summary(
         zvw_premie=zvw_premie,
         totaal_te_reserveren=totaal_te_reserveren,
         settings=s,
+        kosten_per_categorie=kosten_per_categorie,
     )
 
 

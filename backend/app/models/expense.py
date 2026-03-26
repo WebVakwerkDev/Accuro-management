@@ -17,3 +17,4 @@ class Expense(TimestampMixin, Base):
     amount_excl_vat: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     vat_amount: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     date: Mapped[date_type] = mapped_column(Date, nullable=False, index=True)
+    category: Mapped[str | None] = mapped_column(String(50), nullable=True)

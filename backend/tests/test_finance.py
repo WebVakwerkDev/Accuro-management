@@ -252,3 +252,11 @@ class TestFinance:
         data = response.json()
         assert "total_revenue" in data
         assert "vat_by_quarter" in data
+
+    async def test_tax_summary_kosten_per_categorie_empty(self, client, admin_token):
+        """With no expenses, kosten_per_categorie should be an empty list."""
+        response = await client.get("/api/v1/finance/tax-summary/2050", headers=auth_header(admin_token))
+        assert response.status_code == 200
+        data = response.json()
+        assert "kosten_per_categorie" in data
+        assert isinstance(data["kosten_per_categorie"], list)
