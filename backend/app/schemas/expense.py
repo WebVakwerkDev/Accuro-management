@@ -1,7 +1,17 @@
 from pydantic import BaseModel, field_validator
 from decimal import Decimal
 from datetime import date as DateType, datetime
-from typing import Optional
+from typing import Optional, Literal
+
+EXPENSE_CATEGORIES: list[str] = [
+    "Software", "Hardware", "Reizen", "Marketing",
+    "Kantoor", "Abonnementen", "Overig"
+]
+
+ExpenseCategory = Literal[
+    "Software", "Hardware", "Reizen", "Marketing",
+    "Kantoor", "Abonnementen", "Overig"
+]
 
 
 class ExpenseCreate(BaseModel):
@@ -10,6 +20,7 @@ class ExpenseCreate(BaseModel):
     amount_incl_vat: Decimal
     vat_rate: Decimal = Decimal("21")
     date: DateType
+    category: Optional[ExpenseCategory] = "Overig"
 
     @field_validator("amount_incl_vat")
     @classmethod
@@ -32,6 +43,7 @@ class ExpenseUpdate(BaseModel):
     amount_incl_vat: Optional[Decimal] = None
     vat_rate: Optional[Decimal] = None
     date: Optional[DateType] = None
+    category: Optional[ExpenseCategory] = None
 
     @field_validator("amount_incl_vat")
     @classmethod
@@ -57,6 +69,7 @@ class ExpenseResponse(BaseModel):
     amount_excl_vat: Decimal
     vat_amount: Decimal
     date: DateType
+    category: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 

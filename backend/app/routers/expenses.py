@@ -66,6 +66,7 @@ async def create_expense(
         amount_excl_vat=amount_excl,
         vat_amount=vat_amount,
         date=data.date,
+        category=data.category,
     )
     db.add(expense)
     await db.flush()
