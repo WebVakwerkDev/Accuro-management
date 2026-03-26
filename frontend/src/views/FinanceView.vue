@@ -142,6 +142,13 @@
             <div class="divide-y divide-gray-100">
               <wv-row label="Omzet (excl. BTW)" :value="taxSummary.omzet" />
               <wv-row label="− Zakelijke kosten (excl. BTW)" :value="-pf(taxSummary.kosten)" sub />
+              <template v-if="taxSummary.kosten_per_categorie?.length">
+                <div v-for="k in taxSummary.kosten_per_categorie" :key="k.categorie"
+                  class="px-5 py-2 flex justify-between items-center bg-gray-50/60 border-t border-gray-50">
+                  <span class="text-[11px] text-gray-400 pl-4">{{ k.categorie }} <span class="text-gray-300">({{ k.aantal }}×)</span></span>
+                  <span class="font-mono text-xs text-gray-500">{{ fc(k.bedrag) }}</span>
+                </div>
+              </template>
               <wv-row label="= Brutowinst" :value="taxSummary.brutowinst" bold />
               <wv-row label="− Zelfstandigenaftrek" :value="-pf(taxSummary.zelfstandigenaftrek)" sub
                 tooltip="Fiscale aftrekpost voor ondernemers die voldoen aan het urencriterium (1.225 uur per jaar). Verlaagt de belastbare winst." />
