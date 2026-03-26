@@ -67,13 +67,6 @@ class BusinessSettingsUpdate(BaseModel):
                 raise ValueError("Voer een geldig Nederlands telefoonnummer in (bijv. 0612345678 of +31612345678)")
         return v
 
-    @field_validator("website_url")
-    @classmethod
-    def validate_website(cls, v: str | None) -> str | None:
-        if v and not re.match(r"^https?://", v):
-            raise ValueError("Website moet beginnen met https:// of http://")
-        return v
-
     @field_validator("payment_term_days", "default_quote_valid_days")
     @classmethod
     def validate_days(cls, v: int) -> int:

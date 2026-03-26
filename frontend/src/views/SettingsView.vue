@@ -21,8 +21,7 @@
           </div>
           <div>
             <label class="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wider">Website</label>
-            <input v-model="settings.website_url" class="input font-mono" placeholder="https://jouwbedrijf.nl" :class="{ 'border-red-400': errors.website_url }" @blur="validateField('website_url')" />
-            <p v-if="errors.website_url" class="field-error">{{ errors.website_url }}</p>
+            <input v-model="settings.website_url" class="input font-mono" placeholder="jouwbedrijf.nl" />
           </div>
           <div class="col-span-2">
             <label class="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wider">Adres</label>
@@ -170,9 +169,6 @@ function validateField(field: string): boolean {
       errors.value.phone = 'Gebruik bijv. 0612345678 of +31612345678'
       return false
     }
-  }
-  if (field === 'website_url' && v) {
-    if (!/^https?:\/\//.test(v)) { errors.value.website_url = 'Website moet beginnen met https:// of http://'; return false }
   }
   return true
 }
