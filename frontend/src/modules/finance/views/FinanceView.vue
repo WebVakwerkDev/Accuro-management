@@ -150,7 +150,7 @@
                 </div>
               </template>
               <wv-row label="= Brutowinst" :value="taxSummary.brutowinst" bold />
-              <wv-row label="− Zelfstandigenaftrek" :value="-pf(taxSummary.zelfstandigenaftrek)" sub
+              <wv-row v-if="taxSummary.zelfstandigenaftrek_enabled" label="− Zelfstandigenaftrek" :value="-pf(taxSummary.zelfstandigenaftrek)" sub
                 tooltip="Fiscale aftrekpost voor ondernemers die voldoen aan het urencriterium (1.225 uur per jaar). Verlaagt de belastbare winst." />
               <wv-row v-if="taxSummary.startersaftrek_enabled" label="− Startersaftrek" :value="-pf(taxSummary.startersaftrek)" sub
                 tooltip="Extra aftrekpost voor startende ondernemers, maximaal 3 jaar. Bovenop de zelfstandigenaftrek." />
@@ -247,19 +247,18 @@
                 <div>
                   <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-3">Aftrekposten</p>
                   <div class="grid grid-cols-2 gap-4">
-                    <div>
-                      <label class="settings-label flex items-center gap-1">
-                        Zelfstandigenaftrek
-                        <span class="info-btn" title="Jaarlijkse aftrekpost voor IB-ondernemers die voldoen aan het urencriterium (≥1.225 uur). Bedrag is wettelijk bepaald per jaar.">i</span>
-                      </label>
-                      <InputNumber v-model="settingsForm.zelfstandigenaftrek" mode="currency" currency="EUR" locale="nl-NL" class="w-full" />
-                    </div>
-                    <div>
-                      <label class="settings-label flex items-center gap-1">
-                        MKB-winstvrijstelling %
-                        <span class="info-btn" title="Percentage van de winst na ondernemersaftrek dat vrijgesteld is van IB. Automatisch van toepassing voor alle IB-ondernemers.">i</span>
-                      </label>
-                      <InputNumber v-model="settingsForm.mkb_vrijstelling_rate" suffix="%" :min="0" :max="100" :maxFractionDigits="2" class="w-full" />
+                    <div class="col-span-2">
+                      <div class="flex items-center gap-3 mb-2">
+                        <label class="settings-label flex items-center gap-1 mb-0">
+                          Zelfstandigenaftrek
+                          <span class="info-btn" title="Jaarlijkse aftrekpost voor IB-ondernemers die voldoen aan het urencriterium (≥1.225 uur). Bedrag is wettelijk bepaald per jaar.">i</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                          <input type="checkbox" v-model="settingsForm.zelfstandigenaftrek_enabled" class="rounded" />
+                          <span class="text-xs text-gray-500">Van toepassing (urencriterium ≥1.225 uur)</span>
+                        </label>
+                      </div>
+                      <InputNumber v-model="settingsForm.zelfstandigenaftrek" mode="currency" currency="EUR" locale="nl-NL" class="w-56" :disabled="!settingsForm.zelfstandigenaftrek_enabled" />
                     </div>
                     <div class="col-span-2">
                       <div class="flex items-center gap-3 mb-2">
@@ -273,6 +272,13 @@
                         </label>
                       </div>
                       <InputNumber v-model="settingsForm.startersaftrek" mode="currency" currency="EUR" locale="nl-NL" class="w-56" :disabled="!settingsForm.startersaftrek_enabled" />
+                    </div>
+                    <div>
+                      <label class="settings-label flex items-center gap-1">
+                        MKB-winstvrijstelling %
+                        <span class="info-btn" title="Percentage van de winst na ondernemersaftrek dat vrijgesteld is van IB. Automatisch van toepassing voor alle IB-ondernemers.">i</span>
+                      </label>
+                      <InputNumber v-model="settingsForm.mkb_vrijstelling_rate" suffix="%" :min="0" :max="100" :maxFractionDigits="2" class="w-full" />
                     </div>
                   </div>
                 </div>
@@ -423,6 +429,7 @@ async function saveSettings() {
   savingSettings.value = true
   try {
     await financeApi.updateTaxSettings(selectedYear.value, {
+      zelfstandigenaftrek_enabled: settingsForm.value.zelfstandigenaftrek_enabled,
       zelfstandigenaftrek: settingsForm.value.zelfstandigenaftrek,
       startersaftrek_enabled: settingsForm.value.startersaftrek_enabled,
       startersaftrek: settingsForm.value.startersaftrek,

@@ -26,6 +26,7 @@ from app.schemas.finance import (
 router = APIRouter(prefix="/api/v1/finance", tags=["finance"])
 
 _DEFAULTS = {
+    "zelfstandigenaftrek_enabled": False,
     "zelfstandigenaftrek": Decimal("1200.00"),
     "startersaftrek_enabled": False,
     "startersaftrek": Decimal("2123.00"),
@@ -172,7 +173,7 @@ async def update_tax_settings(
     for field, value in update_data.items():
         if value is not None:
             setattr(row, field, value)
-        elif field == "startersaftrek_enabled":
+        elif field in ("zelfstandigenaftrek_enabled", "startersaftrek_enabled"):
             setattr(row, field, value)
 
     await db.flush()
@@ -216,7 +217,7 @@ async def get_tax_summary(
 
     brutowinst = omzet - kosten
 
-    zelfstandigenaftrek = s.zelfstandigenaftrek
+    zelfstandigenaftrek = s.zelfstandigenaftrek if s.zelfstandigenaftrek_enabled else Decimal("0")
     startersaftrek = s.startersaftrek if s.startersaftrek_enabled else Decimal("0")
     winst_na_aftrek = max(brutowinst - zelfstandigenaftrek - startersaftrek, Decimal("0"))
 
@@ -252,6 +253,7 @@ async def get_tax_summary(
         omzet=omzet,
         kosten=kosten,
         brutowinst=brutowinst,
+        zelfstandigenaftrek_enabled=s.zelfstandigenaftrek_enabled,
         zelfstandigenaftrek=zelfstandigenaftrek,
         startersaftrek_enabled=s.startersaftrek_enabled,
         startersaftrek=startersaftrek,
