@@ -31,6 +31,8 @@ export function useFormatting() {
       COMPLETED: 'bg-green-500/10 text-green-600 border border-green-500/20',
       MAINTENANCE: 'bg-cyan-500/10 text-cyan-600 border border-cyan-500/20',
       PAUSED: 'bg-red-500/10 text-red-600 border border-red-500/20',
+      TESTING: 'bg-amber-500/10 text-amber-600 border border-amber-500/20',
+      LIVE: 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20',
       // Change request statuses
       NEW: 'bg-blue-500/10 text-blue-600 border border-blue-500/20',
       REVIEWED: 'bg-indigo-500/10 text-indigo-600 border border-indigo-500/20',
@@ -68,6 +70,7 @@ export function useFormatting() {
       LEAD: 'bg-gray-400', INTAKE: 'bg-blue-400', IN_PROGRESS: 'bg-amber-400',
       WAITING_FOR_CLIENT: 'bg-orange-400', REVIEW: 'bg-purple-400', COMPLETED: 'bg-green-400',
       MAINTENANCE: 'bg-cyan-400', PAUSED: 'bg-red-400',
+      TESTING: 'bg-amber-400', LIVE: 'bg-emerald-400',
       NEW: 'bg-blue-400', DONE: 'bg-green-400',
       DRAFT: 'bg-gray-400', SENT: 'bg-blue-400', PAID: 'bg-green-400', OVERDUE: 'bg-red-400',
       LOW: 'bg-gray-400', MEDIUM: 'bg-amber-400', HIGH: 'bg-orange-400', URGENT: 'bg-red-400',

@@ -1,3 +1,4 @@
+from decimal import Decimal
 from pydantic import BaseModel, field_validator
 from datetime import date, datetime
 from app.modules.projects.models import ProjectType, ProjectStatus, Priority
@@ -18,6 +19,9 @@ class ProjectCreate(BaseModel):
     start_date: date | None = None
     owner_user_id: str | None = None
     tags: list[str] = []
+    tools_used: list[str] | None = None
+    delivery_form: str | None = None
+    recurring_fee: Decimal | None = None
 
     @field_validator("name")
     @classmethod
@@ -41,6 +45,9 @@ class ProjectUpdate(BaseModel):
     start_date: date | None = None
     owner_user_id: str | None = None
     tags: list[str] | None = None
+    tools_used: list[str] | None = None
+    delivery_form: str | None = None
+    recurring_fee: Decimal | None = None
 
 
 class ProjectResponse(BaseModel):
@@ -60,6 +67,9 @@ class ProjectResponse(BaseModel):
     start_date: date | None
     owner_user_id: str | None
     tags: list[str]
+    tools_used: list[str] | None
+    delivery_form: str | None
+    recurring_fee: Decimal | None
     created_at: datetime
     updated_at: datetime
 

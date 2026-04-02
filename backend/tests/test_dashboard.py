@@ -34,3 +34,24 @@ class TestDashboard:
     async def test_finance_cannot_access_dashboard(self, client, finance_token):
         response = await client.get("/api/v1/dashboard/stats", headers=auth_header(finance_token))
         assert response.status_code == 403
+
+    async def test_automation_project_not_counted_without_repos(self, client, admin_token, test_client_data):
+        """Automation projects should not appear in projects_without_repos metric."""
+        # Get baseline count
+        stats_before = await client.get("/api/v1/dashboard/stats", headers=auth_header(admin_token))
+        assert stats_before.status_code == 200
+        count_before = stats_before.json()["projects_without_repos"]
+
+        # Create automation project with IN_PROGRESS status (no repo)
+        response = await client.post("/api/v1/projects", json={
+            "client_id": test_client_data["id"],
+            "name": "Make Flow",
+            "project_type": "WORKFLOW_AUTOMATION",
+            "status": "IN_PROGRESS",
+        }, headers=auth_header(admin_token))
+        assert response.status_code == 201
+
+        # Count should NOT have increased
+        stats_after = await client.get("/api/v1/dashboard/stats", headers=auth_header(admin_token))
+        assert stats_after.status_code == 200
+        assert stats_after.json()["projects_without_repos"] == count_before

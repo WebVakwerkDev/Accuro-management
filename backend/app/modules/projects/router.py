@@ -80,6 +80,9 @@ async def create_project(
         start_date=body.start_date,
         owner_user_id=body.owner_user_id,
         tags=body.tags,
+        tools_used=body.tools_used,
+        delivery_form=body.delivery_form,
+        recurring_fee=body.recurring_fee,
     )
     db.add(project)
     await db.flush()
@@ -202,6 +205,7 @@ async def update_project(
         "name", "project_type", "status", "priority", "description",
         "intake_summary", "scope", "tech_stack", "domain_name",
         "hosting_info", "start_date", "owner_user_id", "tags",
+        "tools_used", "delivery_form", "recurring_fee",
     }
 
     for field_name, value in update_data.items():

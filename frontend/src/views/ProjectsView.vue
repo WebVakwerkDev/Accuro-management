@@ -85,22 +85,35 @@ const loading = ref(true)
 const showCreate = ref(false)
 const saving = ref(false)
 const filters = ref<any>({ status: null, priority: null })
-const form = ref({ name: '', client_id: '', project_type: 'NEW_WEBSITE', priority: 'MEDIUM', status: 'LEAD', description: '' })
+const form = ref({ name: '', client_id: '', project_type: 'OTHER', priority: 'MEDIUM', status: 'LEAD', description: '' })
 
 const statusOptions = [
-  { label: 'Lead', value: 'LEAD' }, { label: 'Intake', value: 'INTAKE' },
-  { label: 'In Progress', value: 'IN_PROGRESS' }, { label: 'Wachtend', value: 'WAITING_FOR_CLIENT' },
-  { label: 'Review', value: 'REVIEW' }, { label: 'Afgerond', value: 'COMPLETED' },
-  { label: 'Onderhoud', value: 'MAINTENANCE' }, { label: 'Gepauzeerd', value: 'PAUSED' },
+  { label: 'Lead', value: 'LEAD' },
+  { label: 'Intake', value: 'INTAKE' },
+  { label: 'In Progress', value: 'IN_PROGRESS' },
+  { label: 'Testen', value: 'TESTING' },
+  { label: 'Wachtend', value: 'WAITING_FOR_CLIENT' },
+  { label: 'Review', value: 'REVIEW' },
+  { label: 'Afgerond', value: 'COMPLETED' },
+  { label: 'Live', value: 'LIVE' },
+  { label: 'Onderhoud', value: 'MAINTENANCE' },
+  { label: 'Gepauzeerd', value: 'PAUSED' },
 ]
 const priorityOptions = [
   { label: 'Laag', value: 'LOW' }, { label: 'Gemiddeld', value: 'MEDIUM' },
   { label: 'Hoog', value: 'HIGH' }, { label: 'Urgent', value: 'URGENT' },
 ]
 const typeOptions = [
-  { label: 'Nieuwe Website', value: 'NEW_WEBSITE' }, { label: 'Redesign', value: 'REDESIGN' },
-  { label: 'Onderhoud', value: 'MAINTENANCE' }, { label: 'Landing Page', value: 'LANDING_PAGE' },
-  { label: 'Portfolio', value: 'PORTFOLIO' }, { label: 'Webshop', value: 'WEBSHOP' },
+  { label: 'Nieuwe Website', value: 'NEW_WEBSITE' },
+  { label: 'Redesign', value: 'REDESIGN' },
+  { label: 'Onderhoud', value: 'MAINTENANCE' },
+  { label: 'Landing Page', value: 'LANDING_PAGE' },
+  { label: 'Portfolio', value: 'PORTFOLIO' },
+  { label: 'Webshop', value: 'WEBSHOP' },
+  { label: 'Workflow Automatisering', value: 'WORKFLOW_AUTOMATION' },
+  { label: 'Custom Software', value: 'CUSTOM_SOFTWARE' },
+  { label: 'AI-integratie', value: 'AI_INTEGRATION' },
+  { label: 'Automatisering Onderhoud', value: 'AUTOMATION_MAINTENANCE' },
   { label: 'Overig', value: 'OTHER' },
 ]
 
@@ -135,7 +148,7 @@ async function createProject() {
   saving.value = true
   try {
     await projectsApi.create(form.value); showCreate.value = false
-    form.value = { name: '', client_id: '', project_type: 'NEW_WEBSITE', priority: 'MEDIUM', status: 'LEAD', description: '' }
+    form.value = { name: '', client_id: '', project_type: 'OTHER', priority: 'MEDIUM', status: 'LEAD', description: '' }
     showSuccess('Project aangemaakt'); await loadProjects()
   } catch (err: any) { showError(err) }
   saving.value = false
