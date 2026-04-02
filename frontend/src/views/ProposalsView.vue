@@ -39,6 +39,13 @@
           <div><label class="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wider">Bedrijfsnaam</label><input v-model="form.recipient_company" class="input" /></div>
           <div><label class="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wider">Levertijd</label><input v-model="form.delivery_time" class="input" placeholder="bijv. 4-6 weken" /></div>
         </div>
+          <div class="col-span-2">
+            <label class="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wider">Prijslabel</label>
+            <div class="flex gap-2">
+              <Dropdown v-model="form.price_label" :options="priceLabelOptions" optionLabel="label" optionValue="value" class="w-48" />
+              <input v-model="form.price_label" class="input flex-1" placeholder="Of vrij invoeren..." />
+            </div>
+          </div>
         <div class="flex justify-end gap-2 pt-3 border-t border-gray-200">
           <button type="button" class="btn-secondary" @click="showCreate = false">Annuleren</button>
           <button type="submit" class="btn-primary" :disabled="saving">Aanmaken</button>
@@ -68,7 +75,22 @@ const clientOptions = ref<any[]>([])
 const loading = ref(true)
 const showCreate = ref(false)
 const saving = ref(false)
-const form = ref<any>({ title: '', client_id: '', amount: 0, recipient_name: '', recipient_email: '', recipient_company: '', delivery_time: '' })
+const form = ref<any>({
+  title: '',
+  client_id: '',
+  amount: 0,
+  recipient_name: '',
+  recipient_email: '',
+  recipient_company: '',
+  delivery_time: '',
+  price_label: 'Projectprijs',
+})
+
+const priceLabelOptions = [
+  { label: 'Projectprijs', value: 'Projectprijs' },
+  { label: 'Abonnementsprijs', value: 'Abonnementsprijs' },
+  { label: 'Maatwerktarief', value: 'Maatwerktarief' },
+]
 
 onMounted(async () => {
   await Promise.all([loadProposals(), loadClients()])
@@ -91,7 +113,7 @@ async function loadClients() {
 
 async function createProposal() {
   saving.value = true
-  try { await proposalsApi.create(form.value); showCreate.value = false; form.value = { title: '', client_id: '', amount: 0, recipient_name: '', recipient_email: '', recipient_company: '', delivery_time: '' }; showSuccess('Offerte aangemaakt') }
+  try { await proposalsApi.create(form.value); showCreate.value = false; form.value = { title: '', client_id: '', amount: 0, recipient_name: '', recipient_email: '', recipient_company: '', delivery_time: '', price_label: 'Projectprijs' }; showSuccess('Offerte aangemaakt') }
   catch (err: any) { showError(err) }
   saving.value = false
 }
