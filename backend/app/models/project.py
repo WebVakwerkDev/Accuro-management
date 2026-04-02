@@ -1,6 +1,7 @@
 import uuid
 import enum
-from sqlalchemy import String, Text, Date, ForeignKey, Enum as SAEnum, JSON
+from decimal import Decimal
+from sqlalchemy import String, Text, Date, ForeignKey, Enum as SAEnum, JSON, Numeric
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from datetime import date
 from app.database import Base, TimestampMixin, SoftDeleteMixin
@@ -13,6 +14,10 @@ class ProjectType(str, enum.Enum):
     LANDING_PAGE = "LANDING_PAGE"
     PORTFOLIO = "PORTFOLIO"
     WEBSHOP = "WEBSHOP"
+    WORKFLOW_AUTOMATION = "WORKFLOW_AUTOMATION"
+    CUSTOM_SOFTWARE = "CUSTOM_SOFTWARE"
+    AI_INTEGRATION = "AI_INTEGRATION"
+    AUTOMATION_MAINTENANCE = "AUTOMATION_MAINTENANCE"
     OTHER = "OTHER"
 
 
@@ -20,9 +25,11 @@ class ProjectStatus(str, enum.Enum):
     LEAD = "LEAD"
     INTAKE = "INTAKE"
     IN_PROGRESS = "IN_PROGRESS"
+    TESTING = "TESTING"
     WAITING_FOR_CLIENT = "WAITING_FOR_CLIENT"
     REVIEW = "REVIEW"
     COMPLETED = "COMPLETED"
+    LIVE = "LIVE"
     MAINTENANCE = "MAINTENANCE"
     PAUSED = "PAUSED"
 
@@ -53,6 +60,9 @@ class ProjectWorkspace(TimestampMixin, SoftDeleteMixin, Base):
     start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     owner_user_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
     tags: Mapped[list | None] = mapped_column(JSON, default=list)
+    tools_used: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    delivery_form: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    recurring_fee: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
 
     # Relationships
     client = relationship("Client", back_populates="projects")

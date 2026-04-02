@@ -85,3 +85,39 @@ class TestProjects:
     async def test_finance_cannot_access_projects(self, client, finance_token):
         response = await client.get("/api/v1/projects", headers=auth_header(finance_token))
         assert response.status_code == 403
+
+    async def test_create_workflow_automation_project(self, client, admin_token, test_client_data):
+        response = await client.post("/api/v1/projects", json={
+            "client_id": test_client_data["id"],
+            "name": "Make Automation Flow",
+            "project_type": "WORKFLOW_AUTOMATION",
+            "tools_used": ["Make", "Airtable", "Slack"],
+            "delivery_form": "embedded",
+            "recurring_fee": "149.00",
+        }, headers=auth_header(admin_token))
+        assert response.status_code == 201
+        data = response.json()
+        assert data["project_type"] == "WORKFLOW_AUTOMATION"
+        assert data["tools_used"] == ["Make", "Airtable", "Slack"]
+        assert data["delivery_form"] == "embedded"
+        assert float(data["recurring_fee"]) == 149.00
+
+    async def test_create_project_with_testing_status(self, client, admin_token, test_client_data):
+        response = await client.post("/api/v1/projects", json={
+            "client_id": test_client_data["id"],
+            "name": "Custom App",
+            "project_type": "CUSTOM_SOFTWARE",
+            "status": "TESTING",
+        }, headers=auth_header(admin_token))
+        assert response.status_code == 201
+        assert response.json()["status"] == "TESTING"
+
+    async def test_create_project_with_live_status(self, client, admin_token, test_client_data):
+        response = await client.post("/api/v1/projects", json={
+            "client_id": test_client_data["id"],
+            "name": "AI Chatbot",
+            "project_type": "AI_INTEGRATION",
+            "status": "LIVE",
+        }, headers=auth_header(admin_token))
+        assert response.status_code == 201
+        assert response.json()["status"] == "LIVE"
