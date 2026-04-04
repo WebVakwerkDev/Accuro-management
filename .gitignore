@@ -46,6 +46,9 @@ packages/db/node_modules/
 # Claude Code
 .claude/
 
+# Zenflow
+.zenflow/
+
 # Python
 __pycache__/
 *.pyc

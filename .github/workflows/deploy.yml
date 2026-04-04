@@ -1,0 +1,102 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Deployment environment"
+        required: true
+        default: "production"
+        type: choice
+        options:
+          - production
+
+concurrency:
+  group: deploy-${{ github.event.inputs.environment }}
+  cancel-in-progress: false
+
+env:
+  COMPOSE_CMD: docker compose -f docker-compose.yml -f docker-compose.prod.yml
+
+jobs:
+  deploy:
+    name: Deploy application
+    runs-on: self-hosted
+    environment: ${{ github.event.inputs.environment }}
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout latest code
+        uses: actions/checkout@v4
+        with:
+          clean: true
+
+      - name: Create .env from secrets
+        env:
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          REDIS_URL: ${{ secrets.REDIS_URL }}
+          JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
+          EXTERNAL_API_KEY: ${{ secrets.EXTERNAL_API_KEY }}
+          CORS_ORIGINS: ${{ secrets.CORS_ORIGINS }}
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+          BACKEND_PORT: ${{ secrets.BACKEND_PORT }}
+          FRONTEND_PORT: ${{ secrets.FRONTEND_PORT }}
+          SEED_ADMIN_EMAIL: ${{ secrets.SEED_ADMIN_EMAIL }}
+          SEED_ADMIN_PASSWORD: ${{ secrets.SEED_ADMIN_PASSWORD }}
+        run: |
+          cat > .env << EOF
+          POSTGRES_DB=${POSTGRES_DB}
+          POSTGRES_USER=${POSTGRES_USER}
+          POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+          REDIS_PASSWORD=${REDIS_PASSWORD}
+          DATABASE_URL=${DATABASE_URL}
+          REDIS_URL=${REDIS_URL}
+          JWT_SECRET_KEY=${JWT_SECRET_KEY}
+          EXTERNAL_API_KEY=${EXTERNAL_API_KEY}
+          CORS_ORIGINS=${CORS_ORIGINS}
+          VITE_API_URL=${VITE_API_URL}
+          BACKEND_PORT=${BACKEND_PORT}
+          FRONTEND_PORT=${FRONTEND_PORT}
+          SEED_ADMIN_EMAIL=${SEED_ADMIN_EMAIL}
+          SEED_ADMIN_PASSWORD=${SEED_ADMIN_PASSWORD}
+          EOF
+          sed -i 's/^          //' .env
+
+      - name: Build new images
+        run: $COMPOSE_CMD build
+
+      - name: Stop application (keep volumes)
+        run: $COMPOSE_CMD down
+
+      - name: Start application
+        run: $COMPOSE_CMD up -d
+
+      - name: Wait for health checks
+        run: |
+          echo "Waiting for services to become healthy..."
+          timeout 120 bash -c '
+            until $COMPOSE_CMD ps --format json | \
+              python3 -c "
+          import sys, json
+          services = [json.loads(line) for line in sys.stdin if line.strip()]
+          unhealthy = [s[\"Service\"] for s in services if s.get(\"Health\") not in (\"healthy\", \"\")]
+          if unhealthy:
+              print(f\"Waiting on: {unhealthy}\")
+              sys.exit(1)
+          print(\"All services healthy\")
+          "; do
+              sleep 5
+            done
+          '
+
+      - name: Show running services
+        if: always()
+        run: $COMPOSE_CMD ps
+
+      - name: Show logs on failure
+        if: failure()
+        run: $COMPOSE_CMD logs --tail=50
