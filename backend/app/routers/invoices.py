@@ -31,7 +31,11 @@ async def _generate_invoice_number(db: AsyncSession) -> str:
     )
     last = result.scalar_one_or_none()
     if last:
-        last_num = int(last.split("-")[1])
+        parts = last.split("-")
+        try:
+            last_num = int(parts[1]) if len(parts) >= 2 else 0
+        except ValueError:
+            last_num = 0
         return f"{prefix}{last_num + 1:03d}"
     return f"{prefix}001"
 
