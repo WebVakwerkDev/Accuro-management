@@ -62,56 +62,65 @@ async def get_finance_overview(
 ) -> FinanceOverview:
     target_year = year or date.today().year
 
-    # Total revenue (PAID) for year
-    paid = await db.execute(
-        select(func.coalesce(func.sum(Invoice.total_amount), 0))
-        .where(Invoice.status == InvoiceStatus.PAID.value, extract("year", Invoice.issue_date) == target_year)
+    # Query 1: Revenue aggregaties per status
+    revenue_result = await db.execute(
+        select(
+            Invoice.status,
+            func.coalesce(func.sum(Invoice.total_amount), 0).label("total"),
+        )
+        .where(extract("year", Invoice.issue_date) == target_year)
+        .group_by(Invoice.status)
     )
-    total_revenue = paid.scalar() or Decimal("0")
+    revenue_by_status: dict[str, Decimal] = {row.status: row.total for row in revenue_result.all()}
+    total_revenue = revenue_by_status.get(InvoiceStatus.PAID.value, Decimal("0"))
+    open_amount = revenue_by_status.get(InvoiceStatus.SENT.value, Decimal("0"))
+    overdue_amount = revenue_by_status.get(InvoiceStatus.OVERDUE.value, Decimal("0"))
 
-    # Open amount (SENT)
-    sent = await db.execute(
-        select(func.coalesce(func.sum(Invoice.total_amount), 0))
-        .where(Invoice.status == InvoiceStatus.SENT.value, extract("year", Invoice.issue_date) == target_year)
-    )
-    open_amount = sent.scalar() or Decimal("0")
-
-    # Overdue amount
-    overdue = await db.execute(
-        select(func.coalesce(func.sum(Invoice.total_amount), 0))
-        .where(Invoice.status == InvoiceStatus.OVERDUE.value, extract("year", Invoice.issue_date) == target_year)
-    )
-    overdue_amount = overdue.scalar() or Decimal("0")
-
-    # Total expenses (excl VAT) for year
+    # Query 2: Totaal uitgaven excl. BTW
     expenses_result = await db.execute(
         select(func.coalesce(func.sum(Expense.amount_excl_vat), 0))
         .where(extract("year", Expense.date) == target_year)
     )
     total_expenses = expenses_result.scalar() or Decimal("0")
 
-    # VAT by quarter
+    # Query 3: BTW per kwartaal + VAT rate (betaalde facturen)
+    invoice_vat_result = await db.execute(
+        select(
+            extract("quarter", Invoice.issue_date).label("quarter"),
+            Invoice.vat_rate,
+            func.sum(Invoice.subtotal).label("subtotal"),
+            func.sum(Invoice.vat_amount).label("vat_amount"),
+            func.sum(Invoice.total_amount).label("total"),
+        )
+        .where(
+            Invoice.status == InvoiceStatus.PAID.value,
+            extract("year", Invoice.issue_date) == target_year,
+        )
+        .group_by("quarter", Invoice.vat_rate)
+    )
+    invoice_vat_rows = invoice_vat_result.all()
+
+    # Query 4: Expense BTW per kwartaal
+    expense_vat_result = await db.execute(
+        select(
+            extract("quarter", Expense.date).label("quarter"),
+            func.coalesce(func.sum(Expense.vat_amount), 0).label("paid_vat"),
+        )
+        .where(extract("year", Expense.date) == target_year)
+        .group_by("quarter")
+    )
+    expense_vat_by_quarter: dict[int, Decimal] = {
+        int(row.quarter): row.paid_vat for row in expense_vat_result.all()
+    }
+
+    # Aggregeer per kwartaal in Python
+    invoice_vat_by_quarter: dict[int, list] = {q: [] for q in range(1, 5)}
+    for row in invoice_vat_rows:
+        q = int(row.quarter)
+        invoice_vat_by_quarter[q].append(row)
+
     vat_by_quarter: dict[str, QuarterVatSummary] = {}
     for quarter in range(1, 5):
-        start_month = (quarter - 1) * 3 + 1
-        end_month = quarter * 3
-
-        result = await db.execute(
-            select(
-                Invoice.vat_rate,
-                func.sum(Invoice.subtotal).label("subtotal"),
-                func.sum(Invoice.vat_amount).label("vat_amount"),
-                func.sum(Invoice.total_amount).label("total"),
-            )
-            .where(
-                Invoice.status == InvoiceStatus.PAID.value,
-                extract("year", Invoice.issue_date) == target_year,
-                extract("month", Invoice.issue_date) >= start_month,
-                extract("month", Invoice.issue_date) <= end_month,
-            )
-            .group_by(Invoice.vat_rate)
-        )
-        rows = result.all()
         breakdown = [
             VatBreakdown(
                 vat_rate=row.vat_rate,
@@ -119,20 +128,10 @@ async def get_finance_overview(
                 vat_amount=row.vat_amount or Decimal("0"),
                 total=row.total or Decimal("0"),
             )
-            for row in rows
+            for row in invoice_vat_by_quarter[quarter]
         ]
         received_vat = sum(b.vat_amount for b in breakdown)
-
-        expense_vat_result = await db.execute(
-            select(func.coalesce(func.sum(Expense.vat_amount), 0))
-            .where(
-                extract("year", Expense.date) == target_year,
-                extract("month", Expense.date) >= start_month,
-                extract("month", Expense.date) <= end_month,
-            )
-        )
-        paid_vat = expense_vat_result.scalar() or Decimal("0")
-
+        paid_vat = expense_vat_by_quarter.get(quarter, Decimal("0"))
         vat_by_quarter[f"Q{quarter}"] = QuarterVatSummary(
             received_vat=received_vat,
             paid_vat=paid_vat,
