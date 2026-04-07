@@ -6,6 +6,7 @@ const apiUrl = import.meta.env.VITE_API_URL || ''
 const api = axios.create({
   baseURL: `${apiUrl}/api/v1`,
   headers: { 'Content-Type': 'application/json' },
+  withCredentials: true,
 })
 
 let accessToken: string | null = null
@@ -28,9 +29,9 @@ api.interceptors.request.use((config) => {
 
 // Response interceptor — handle 401 and refresh
 let isRefreshing = false
-let failedQueue: Array<{ resolve: (token: string) => void; reject: (err: any) => void }> = []
+let failedQueue: Array<{ resolve: (token: string) => void; reject: (err: unknown) => void }> = []
 
-function processQueue(error: any, token: string | null = null) {
+function processQueue(error: unknown, token: string | null = null) {
   failedQueue.forEach((prom) => {
     if (error) {
       prom.reject(error)
@@ -58,27 +59,19 @@ api.interceptors.response.use(
       originalRequest._retry = true
       isRefreshing = true
 
-      const refreshToken = localStorage.getItem('refresh_token')
-      if (!refreshToken) {
-        isRefreshing = false
-        localStorage.removeItem('refresh_token')
-        setAccessToken(null)
-        router.push('/login')
-        return Promise.reject(error)
-      }
-
       try {
-        const { data } = await axios.post(`${apiUrl}/api/v1/auth/refresh`, {
-          refresh_token: refreshToken,
-        })
+        // Cookie wordt automatisch meegestuurd door withCredentials
+        const { data } = await axios.post(
+          `${apiUrl}/api/v1/auth/refresh`,
+          {},
+          { withCredentials: true },
+        )
         setAccessToken(data.access_token)
-        localStorage.setItem('refresh_token', data.refresh_token)
         processQueue(null, data.access_token)
         originalRequest.headers.Authorization = `Bearer ${data.access_token}`
         return api(originalRequest)
       } catch (refreshError) {
         processQueue(refreshError, null)
-        localStorage.removeItem('refresh_token')
         setAccessToken(null)
         router.push('/login')
         return Promise.reject(refreshError)

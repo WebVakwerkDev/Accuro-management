@@ -5,7 +5,7 @@ from sqlalchemy import select
 import io
 
 from app.database import get_db
-from app.core.dependencies import require_role, get_client_ip
+from app.core.dependencies import require_role, get_client_ip, get_business_settings
 from app.core.rbac import Role
 from app.services.audit_service import create_audit_log
 from app.services.pdf_service import generate_proposal_pdf
@@ -158,6 +158,7 @@ async def download_proposal_pdf(
     proposal_id: str,
     current_user=Depends(require_role(Role.ADMIN, Role.EMPLOYEE)),
     db: AsyncSession = Depends(get_db),
+    settings: BusinessSettings = Depends(get_business_settings),
 ) -> StreamingResponse:
     result = await db.execute(select(ProposalDraft).where(ProposalDraft.id == proposal_id))
     proposal = result.scalar_one_or_none()
@@ -168,11 +169,6 @@ async def download_proposal_pdf(
     client = client_result.scalar_one_or_none()
     if not client:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
-
-    settings_result = await db.execute(select(BusinessSettings).where(BusinessSettings.id == 1))
-    settings = settings_result.scalar_one_or_none()
-    if not settings:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Business settings not configured")
 
     proposal_data = {
         "id": proposal.id,

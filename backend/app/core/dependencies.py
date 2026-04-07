@@ -7,6 +7,7 @@ from app.database import get_db
 from app.core.security import decode_token, timing_safe_compare
 from app.core.rbac import Role
 from app.config import get_settings
+from app.models.business_settings import BusinessSettings
 
 security_scheme = HTTPBearer()
 
@@ -86,3 +87,15 @@ def get_client_ip(request: Request) -> str:
     if forwarded:
         return forwarded.split(",")[0].strip()
     return request.client.host if request.client else "unknown"
+
+
+async def get_business_settings(db: AsyncSession = Depends(get_db)) -> BusinessSettings:
+    """Fetch the single BusinessSettings row. Raises 503 if not configured."""
+    result = await db.execute(select(BusinessSettings).limit(1))
+    settings = result.scalar_one_or_none()
+    if not settings:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Business settings not configured",
+        )
+    return settings

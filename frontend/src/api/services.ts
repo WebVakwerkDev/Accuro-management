@@ -22,8 +22,8 @@ export { clientsApi } from '@/modules/clients/api'
 export const authApi = {
   login: (email: string, password: string): Promise<AxiosResponse<TokenResponse>> =>
     api.post('/auth/login', { email, password }),
-  refresh: (refreshToken: string): Promise<AxiosResponse<TokenResponse>> =>
-    api.post('/auth/refresh', { refresh_token: refreshToken }),
+  refresh: (): Promise<AxiosResponse<TokenResponse>> =>
+    api.post('/auth/refresh', {}),
   logout: (): Promise<AxiosResponse<void>> =>
     api.post('/auth/logout'),
   me: (): Promise<AxiosResponse<User>> =>

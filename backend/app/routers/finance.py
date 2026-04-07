@@ -9,7 +9,8 @@ import io
 import calendar
 
 from app.database import get_db
-from app.core.dependencies import require_role
+from app.core.dependencies import require_role, get_business_settings
+from app.services.tax_service import TaxCalculator
 from app.core.rbac import Role
 from app.services.pdf_service import generate_report_pdf
 from app.models.invoice import Invoice, InvoiceStatus
@@ -19,8 +20,7 @@ from app.models.business_settings import BusinessSettings
 from app.models.tax_year_settings import TaxYearSettings
 from app.schemas.finance import (
     FinanceOverview, VatBreakdown, QuarterVatSummary, MonthlyReport, YearlyReport,
-    TaxYearSettingsResponse, TaxYearSettingsUpdate, TaxSummary, IBSchijf,
-    KostenCategorie,
+    TaxYearSettingsResponse, TaxYearSettingsUpdate, TaxSummary, KostenCategorie,
 )
 
 router = APIRouter(prefix="/api/v1/finance", tags=["finance"])
@@ -41,11 +41,6 @@ _DEFAULTS = {
 }
 
 
-def _nl_currency(v: Decimal) -> str:
-    """Format a Decimal as a Dutch integer currency string, e.g. 38.441."""
-    return f"{int(v):,}".replace(",", ".")
-
-
 async def _get_or_default_tax_settings(db: AsyncSession, year: int) -> TaxYearSettingsResponse:
     result = await db.execute(select(TaxYearSettings).where(TaxYearSettings.year == year))
     row = result.scalar_one_or_none()
@@ -62,56 +57,65 @@ async def get_finance_overview(
 ) -> FinanceOverview:
     target_year = year or date.today().year
 
-    # Total revenue (PAID) for year
-    paid = await db.execute(
-        select(func.coalesce(func.sum(Invoice.total_amount), 0))
-        .where(Invoice.status == InvoiceStatus.PAID.value, extract("year", Invoice.issue_date) == target_year)
+    # Query 1: Revenue aggregaties per status
+    revenue_result = await db.execute(
+        select(
+            Invoice.status,
+            func.coalesce(func.sum(Invoice.total_amount), 0).label("total"),
+        )
+        .where(extract("year", Invoice.issue_date) == target_year)
+        .group_by(Invoice.status)
     )
-    total_revenue = paid.scalar() or Decimal("0")
+    revenue_by_status: dict[str, Decimal] = {row.status: row.total for row in revenue_result.all()}
+    total_revenue = revenue_by_status.get(InvoiceStatus.PAID.value, Decimal("0"))
+    open_amount = revenue_by_status.get(InvoiceStatus.SENT.value, Decimal("0"))
+    overdue_amount = revenue_by_status.get(InvoiceStatus.OVERDUE.value, Decimal("0"))
 
-    # Open amount (SENT)
-    sent = await db.execute(
-        select(func.coalesce(func.sum(Invoice.total_amount), 0))
-        .where(Invoice.status == InvoiceStatus.SENT.value, extract("year", Invoice.issue_date) == target_year)
-    )
-    open_amount = sent.scalar() or Decimal("0")
-
-    # Overdue amount
-    overdue = await db.execute(
-        select(func.coalesce(func.sum(Invoice.total_amount), 0))
-        .where(Invoice.status == InvoiceStatus.OVERDUE.value, extract("year", Invoice.issue_date) == target_year)
-    )
-    overdue_amount = overdue.scalar() or Decimal("0")
-
-    # Total expenses (excl VAT) for year
+    # Query 2: Totaal uitgaven excl. BTW
     expenses_result = await db.execute(
         select(func.coalesce(func.sum(Expense.amount_excl_vat), 0))
         .where(extract("year", Expense.date) == target_year)
     )
     total_expenses = expenses_result.scalar() or Decimal("0")
 
-    # VAT by quarter
+    # Query 3: BTW per kwartaal + VAT rate (betaalde facturen)
+    invoice_vat_result = await db.execute(
+        select(
+            extract("quarter", Invoice.issue_date).label("quarter"),
+            Invoice.vat_rate,
+            func.sum(Invoice.subtotal).label("subtotal"),
+            func.sum(Invoice.vat_amount).label("vat_amount"),
+            func.sum(Invoice.total_amount).label("total"),
+        )
+        .where(
+            Invoice.status == InvoiceStatus.PAID.value,
+            extract("year", Invoice.issue_date) == target_year,
+        )
+        .group_by("quarter", Invoice.vat_rate)
+    )
+    invoice_vat_rows = invoice_vat_result.all()
+
+    # Query 4: Expense BTW per kwartaal
+    expense_vat_result = await db.execute(
+        select(
+            extract("quarter", Expense.date).label("quarter"),
+            func.coalesce(func.sum(Expense.vat_amount), 0).label("paid_vat"),
+        )
+        .where(extract("year", Expense.date) == target_year)
+        .group_by("quarter")
+    )
+    expense_vat_by_quarter: dict[int, Decimal] = {
+        int(row.quarter): row.paid_vat for row in expense_vat_result.all()
+    }
+
+    # Aggregeer per kwartaal in Python
+    invoice_vat_by_quarter: dict[int, list] = {q: [] for q in range(1, 5)}
+    for row in invoice_vat_rows:
+        q = int(row.quarter)
+        invoice_vat_by_quarter[q].append(row)
+
     vat_by_quarter: dict[str, QuarterVatSummary] = {}
     for quarter in range(1, 5):
-        start_month = (quarter - 1) * 3 + 1
-        end_month = quarter * 3
-
-        result = await db.execute(
-            select(
-                Invoice.vat_rate,
-                func.sum(Invoice.subtotal).label("subtotal"),
-                func.sum(Invoice.vat_amount).label("vat_amount"),
-                func.sum(Invoice.total_amount).label("total"),
-            )
-            .where(
-                Invoice.status == InvoiceStatus.PAID.value,
-                extract("year", Invoice.issue_date) == target_year,
-                extract("month", Invoice.issue_date) >= start_month,
-                extract("month", Invoice.issue_date) <= end_month,
-            )
-            .group_by(Invoice.vat_rate)
-        )
-        rows = result.all()
         breakdown = [
             VatBreakdown(
                 vat_rate=row.vat_rate,
@@ -119,20 +123,10 @@ async def get_finance_overview(
                 vat_amount=row.vat_amount or Decimal("0"),
                 total=row.total or Decimal("0"),
             )
-            for row in rows
+            for row in invoice_vat_by_quarter[quarter]
         ]
         received_vat = sum(b.vat_amount for b in breakdown)
-
-        expense_vat_result = await db.execute(
-            select(func.coalesce(func.sum(Expense.vat_amount), 0))
-            .where(
-                extract("year", Expense.date) == target_year,
-                extract("month", Expense.date) >= start_month,
-                extract("month", Expense.date) <= end_month,
-            )
-        )
-        paid_vat = expense_vat_result.scalar() or Decimal("0")
-
+        paid_vat = expense_vat_by_quarter.get(quarter, Decimal("0"))
         vat_by_quarter[f"Q{quarter}"] = QuarterVatSummary(
             received_vat=received_vat,
             paid_vat=paid_vat,
@@ -194,21 +188,18 @@ async def get_tax_summary(
 ) -> TaxSummary:
     s = await _get_or_default_tax_settings(db, year)
 
-    # Omzet: betaalde facturen in jaar (subtotal excl BTW)
     omzet_result = await db.execute(
         select(func.coalesce(func.sum(Invoice.subtotal), 0))
         .where(Invoice.status == InvoiceStatus.PAID.value, extract("year", Invoice.issue_date) == year)
     )
     omzet = omzet_result.scalar() or Decimal("0")
 
-    # Kosten: uitgaven excl. BTW in jaar
     kosten_result = await db.execute(
         select(func.coalesce(func.sum(Expense.amount_excl_vat), 0))
         .where(extract("year", Expense.date) == year)
     )
     kosten = kosten_result.scalar() or Decimal("0")
 
-    # Kosten per categorie — group by raw column, substitute NULL→Overig in Python
     cat_result = await db.execute(
         select(
             Expense.category,
@@ -223,67 +214,7 @@ async def get_tax_summary(
         for r in cat_result.all()
     ]
 
-    brutowinst = omzet - kosten
-
-    # Aftrekposten
-    zelfstandigenaftrek = s.zelfstandigenaftrek
-    startersaftrek = s.startersaftrek if s.startersaftrek_enabled else Decimal("0")
-    winst_na_aftrek = max(brutowinst - zelfstandigenaftrek - startersaftrek, Decimal("0"))
-
-    # MKB-winstvrijstelling
-    mkb_vrijstelling = (winst_na_aftrek * s.mkb_vrijstelling_rate / Decimal("100")).quantize(Decimal("0.01"))
-    belastbare_winst = max(winst_na_aftrek - mkb_vrijstelling, Decimal("0"))
-
-    # Inkomstenbelasting per schijf
-    ib_schijven: list[IBSchijf] = []
-    resterend = belastbare_winst
-
-    # Schijf 1
-    in_schijf_1 = min(resterend, s.ib_bracket_1)
-    ib_1 = (in_schijf_1 * s.ib_rate_1 / Decimal("100")).quantize(Decimal("0.01"))
-    ib_schijven.append(IBSchijf(label=f"Schijf 1 (t/m €{_nl_currency(s.ib_bracket_1)})", rate=s.ib_rate_1, inkomen_in_schijf=in_schijf_1, belasting=ib_1))
-    resterend = max(resterend - s.ib_bracket_1, Decimal("0"))
-
-    # Schijf 2
-    in_schijf_2 = min(resterend, s.ib_bracket_2 - s.ib_bracket_1)
-    ib_2 = (in_schijf_2 * s.ib_rate_2 / Decimal("100")).quantize(Decimal("0.01"))
-    ib_schijven.append(IBSchijf(label=f"Schijf 2 (€{_nl_currency(s.ib_bracket_1)} – €{_nl_currency(s.ib_bracket_2)})", rate=s.ib_rate_2, inkomen_in_schijf=in_schijf_2, belasting=ib_2))
-    resterend = max(resterend - (s.ib_bracket_2 - s.ib_bracket_1), Decimal("0"))
-
-    # Schijf 3
-    in_schijf_3 = resterend
-    ib_3 = (in_schijf_3 * s.ib_rate_3 / Decimal("100")).quantize(Decimal("0.01"))
-    ib_schijven.append(IBSchijf(label=f"Schijf 3 (boven €{_nl_currency(s.ib_bracket_2)})", rate=s.ib_rate_3, inkomen_in_schijf=in_schijf_3, belasting=ib_3))
-
-    ib_totaal = ib_1 + ib_2 + ib_3
-
-    # Zvw-premie
-    zvw_grondslag = min(belastbare_winst, s.zvw_max_inkomen)
-    zvw_premie = (zvw_grondslag * s.zvw_rate / Decimal("100")).quantize(Decimal("0.01"))
-
-    totaal_te_reserveren = ib_totaal + zvw_premie
-
-    return TaxSummary(
-        year=year,
-        omzet=omzet,
-        kosten=kosten,
-        brutowinst=brutowinst,
-        zelfstandigenaftrek=zelfstandigenaftrek,
-        startersaftrek_enabled=s.startersaftrek_enabled,
-        startersaftrek=startersaftrek,
-        winst_na_aftrek=winst_na_aftrek,
-        mkb_vrijstelling_rate=s.mkb_vrijstelling_rate,
-        mkb_vrijstelling=mkb_vrijstelling,
-        belastbare_winst=belastbare_winst,
-        ib_schijven=ib_schijven,
-        ib_totaal=ib_totaal,
-        zvw_rate=s.zvw_rate,
-        zvw_grondslag=zvw_grondslag,
-        zvw_premie=zvw_premie,
-        totaal_te_reserveren=totaal_te_reserveren,
-        settings=s,
-        kosten_per_categorie=kosten_per_categorie,
-    )
+    return TaxCalculator(s).calculate(omzet, kosten, kosten_per_categorie)
 
 
 @router.get("/reports/monthly")
@@ -293,6 +224,7 @@ async def monthly_report(
     format: str = Query("json", pattern="^(json|csv|pdf)$"),
     current_user=Depends(require_role(Role.ADMIN, Role.FINANCE)),
     db: AsyncSession = Depends(get_db),
+    biz_settings: BusinessSettings = Depends(get_business_settings),
 ):
     result = await db.execute(
         select(Invoice, Client.company_name.label("client_name"))
@@ -373,13 +305,9 @@ async def monthly_report(
         )
 
     if format == "pdf":
-        settings_result = await db.execute(select(BusinessSettings).where(BusinessSettings.id == 1))
-        settings = settings_result.scalar_one_or_none()
-        if not settings:
-            raise HTTPException(status_code=400, detail="Business settings not configured")
         settings_data = {
-            "company_name": settings.company_name, "email": settings.email,
-            "kvk_number": settings.kvk_number, "vat_number": settings.vat_number,
+            "company_name": biz_settings.company_name, "email": biz_settings.email,
+            "kvk_number": biz_settings.kvk_number, "vat_number": biz_settings.vat_number,
         }
         report_data = report.model_dump()
         report_data["invoices"] = invoice_list
@@ -398,6 +326,7 @@ async def yearly_report(
     include_unpaid: bool = Query(False),
     current_user=Depends(require_role(Role.ADMIN, Role.FINANCE)),
     db: AsyncSession = Depends(get_db),
+    biz_settings: BusinessSettings = Depends(get_business_settings),
 ):
     status_filter = [InvoiceStatus.PAID.value]
     if include_unpaid:
@@ -473,13 +402,9 @@ async def yearly_report(
         )
 
     if format == "pdf":
-        settings_result = await db.execute(select(BusinessSettings).where(BusinessSettings.id == 1))
-        settings = settings_result.scalar_one_or_none()
-        if not settings:
-            raise HTTPException(status_code=400, detail="Business settings not configured")
         settings_data = {
-            "company_name": settings.company_name, "email": settings.email,
-            "kvk_number": settings.kvk_number, "vat_number": settings.vat_number,
+            "company_name": biz_settings.company_name, "email": biz_settings.email,
+            "kvk_number": biz_settings.kvk_number, "vat_number": biz_settings.vat_number,
         }
         report_data = report.model_dump()
         pdf_bytes = generate_report_pdf(report_data, "yearly", settings_data)

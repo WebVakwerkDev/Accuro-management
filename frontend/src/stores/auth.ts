@@ -20,19 +20,14 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function init() {
-    const refreshToken = localStorage.getItem('refresh_token')
-    if (!refreshToken) {
-      loading.value = false
-      return
-    }
+    // Cookie wordt automatisch meegestuurd — geen localStorage nodig
     try {
-      const { data: tokens } = await authApi.refresh(refreshToken)
+      const { data: tokens } = await authApi.refresh()
       setAccessToken(tokens.access_token)
-      localStorage.setItem('refresh_token', tokens.refresh_token)
       const { data: me } = await authApi.me()
       user.value = me
     } catch {
-      localStorage.removeItem('refresh_token')
+      // Geen geldige cookie — gebruiker is uitgelogd
       setAccessToken(null)
     } finally {
       loading.value = false
@@ -42,7 +37,6 @@ export const useAuthStore = defineStore('auth', () => {
   async function login(email: string, password: string) {
     const { data } = await authApi.login(email, password)
     setAccessToken(data.access_token)
-    localStorage.setItem('refresh_token', data.refresh_token)
     const { data: me } = await authApi.me()
     user.value = me
   }
@@ -52,7 +46,6 @@ export const useAuthStore = defineStore('auth', () => {
       await authApi.logout()
     } catch { /* ignore */ }
     setAccessToken(null)
-    localStorage.removeItem('refresh_token')
     user.value = null
     router.push('/login')
   }

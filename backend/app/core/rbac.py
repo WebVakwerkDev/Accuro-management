@@ -93,6 +93,3 @@ def check_permission(user_role: str, permission: str) -> None:
         )
 
 
-def require_roles(*roles: Role):
-    """Returns a list of allowed role values for use in dependencies."""
-    return [r.value for r in roles]
