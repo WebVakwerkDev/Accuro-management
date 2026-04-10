@@ -126,6 +126,26 @@ async def get_me(current_user: User = Depends(get_current_user)) -> dict:
     }
 
 
+@router.get("/verify")
+async def verify(current_user: User = Depends(get_current_user)) -> dict:
+    """
+    Token introspection endpoint for internal service-to-service use.
+
+    A trusted service (e.g. Launchpad) sends a Bearer access token it
+    received from /login and gets back the associated user's identity and
+    role — without needing access to the JWT secret itself.
+
+    Returns 401 if the token is missing, expired, or invalid.
+    """
+    return {
+        "id": current_user.id,
+        "email": current_user.email,
+        "name": current_user.name,
+        "role": current_user.role,
+        "is_active": current_user.is_active,
+    }
+
+
 @router.put("/me/password", status_code=status.HTTP_204_NO_CONTENT)
 async def change_password(
     body: PasswordChangeRequest,
