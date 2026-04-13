@@ -11,6 +11,7 @@ os.environ.setdefault("EXTERNAL_API_KEY", "test-external-api-key-for-testing")
 os.environ.setdefault("CORS_ORIGINS", "http://localhost:3000")
 os.environ.setdefault("SEED_ADMIN_EMAIL", "")
 os.environ.setdefault("SEED_ADMIN_PASSWORD", "")
+os.environ.setdefault("OAUTH_ISSUER", "http://testaccuro.test")
 
 # Clear any cached settings
 from app.config import get_settings
@@ -46,6 +47,16 @@ async def override_get_db():
 # Mock Redis functions
 mock_redis_store = {}
 
+mock_oauth_code_store: dict = {}
+
+
+async def mock_store_auth_code(code: str, payload: dict) -> None:
+    mock_oauth_code_store[code] = payload
+
+
+async def mock_consume_auth_code(code: str) -> dict | None:
+    return mock_oauth_code_store.pop(code, None)
+
 
 async def mock_store_refresh_token(user_id: str, token: str, user_agent: str = ""):
     mock_redis_store[f"refresh:{user_id}"] = token
@@ -68,8 +79,9 @@ async def mock_check_rate_limit(key: str, max_requests: int, window_seconds: int
 
 
 @pytest.fixture(autouse=True)
-def mock_redis():
+def mock_redis(monkeypatch):
     mock_redis_store.clear()
+    mock_oauth_code_store.clear()
     with patch("app.core.auth.store_refresh_token", side_effect=mock_store_refresh_token), \
          patch("app.core.auth.get_stored_refresh_token", side_effect=mock_get_stored_refresh_token), \
          patch("app.core.auth.delete_refresh_token", side_effect=mock_delete_refresh_token), \
@@ -79,6 +91,8 @@ def mock_redis():
          patch("app.routers.auth.get_stored_refresh_token", side_effect=mock_get_stored_refresh_token), \
          patch("app.routers.auth.delete_refresh_token", side_effect=mock_delete_refresh_token), \
          patch("app.routers.users.invalidate_all_user_tokens", side_effect=mock_invalidate_all_user_tokens):
+        monkeypatch.setattr("app.routers.oauth.store_auth_code", mock_store_auth_code)
+        monkeypatch.setattr("app.routers.oauth.consume_auth_code", mock_consume_auth_code)
         yield
 
 
@@ -197,6 +211,25 @@ async def finance_token(client, finance_user):
         "password": "TestPassword1!",
     })
     return response.json()["access_token"]
+
+
+@pytest.fixture(scope="session", autouse=True)
+def test_rsa_key():
+    """Generate a test RSA keypair and initialize the oauth core module."""
+    import app.core.oauth as oauth_core
+    from cryptography.hazmat.primitives.asymmetric import rsa
+    from cryptography.hazmat.primitives import serialization
+
+    private_key = rsa.generate_private_key(
+        public_exponent=65537,
+        key_size=2048,
+    )
+    pem = private_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.TraditionalOpenSSL,
+        encryption_algorithm=serialization.NoEncryption(),
+    ).decode()
+    oauth_core.init_rsa_key(pem)
 
 
 def auth_header(token: str) -> dict:

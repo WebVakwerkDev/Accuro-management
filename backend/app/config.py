@@ -46,6 +46,14 @@ class Settings(BaseSettings):
     SEED_ADMIN_PASSWORD: str = ""
     SEED_ADMIN_NAME: str = "Admin"
 
+    # OAuth / OIDC provider
+    OAUTH_ISSUER: str = ""
+    OAUTH_RSA_PRIVATE_KEY: str = ""
+    SEED_OAUTH_CLIENT_ID: str = ""
+    SEED_OAUTH_CLIENT_SECRET: str = ""
+    SEED_OAUTH_CLIENT_NAME: str = ""
+    SEED_OAUTH_REDIRECT_URI: str = ""
+
     # Seed — business settings (only applied once if no settings exist yet)
     SEED_COMPANY_NAME: str = ""
     SEED_COMPANY_EMAIL: str = ""
