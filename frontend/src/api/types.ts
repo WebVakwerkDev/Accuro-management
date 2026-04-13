@@ -131,3 +131,24 @@ export interface TaxSettings {
   kor_enabled: boolean
   zelfstandigenaftrek_enabled: boolean
 }
+
+// ─── OAuth Clients ────────────────────────────────────────────────────────────
+
+export interface OAuthClient {
+  client_id: string
+  name: string
+  redirect_uris: string[]
+  allowed_scopes: string
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface OAuthClientCreated extends OAuthClient {
+  client_secret: string
+}
+
+export interface OAuthClientSecret {
+  client_id: string
+  client_secret: string
+}
