@@ -87,6 +87,8 @@
       </div>
     </div>
 
+    <OAuthClientsTab />
+
     <div class="card p-5">
       <h2 class="text-sm font-medium text-gray-800 mb-1">Database export</h2>
       <p class="text-xs text-gray-500 mb-4">Exporteer alle data als JSON. Vereist wachtwoordbevestiging.</p>
@@ -122,6 +124,7 @@ import Column from 'primevue/column'
 import Dialog from 'primevue/dialog'
 import Dropdown from 'primevue/dropdown'
 import InputNumber from 'primevue/inputnumber'
+import OAuthClientsTab from '@/components/OAuthClientsTab.vue'
 
 const auth = useAuthStore()
 const { showError, showSuccess } = useErrorHandler()

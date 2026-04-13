@@ -11,6 +11,9 @@ import type {
   CompanySettings,
   DashboardStats,
   TaxSettings,
+  OAuthClient,
+  OAuthClientCreated,
+  OAuthClientSecret,
 } from './types'
 
 // Re-exports from migrated modules (backwards compatibility for views not yet migrated)
@@ -186,4 +189,18 @@ export const settingsApi = {
 export const exportApi = {
   database: (password: string): Promise<AxiosResponse<unknown>> =>
     api.post('/export/database', { password }),
+}
+
+// OAuth Clients
+export const oauthClientsApi = {
+  list: (): Promise<AxiosResponse<OAuthClient[]>> =>
+    api.get('/oauth-clients'),
+  create: (data: { name: string; redirect_uris: string[]; allowed_scopes?: string }): Promise<AxiosResponse<OAuthClientCreated>> =>
+    api.post('/oauth-clients', data),
+  update: (clientId: string, data: Partial<Pick<OAuthClient, 'name' | 'redirect_uris' | 'allowed_scopes' | 'is_active'>>): Promise<AxiosResponse<OAuthClient>> =>
+    api.patch(`/oauth-clients/${clientId}`, data),
+  remove: (clientId: string): Promise<AxiosResponse<void>> =>
+    api.delete(`/oauth-clients/${clientId}`),
+  regenerateSecret: (clientId: string): Promise<AxiosResponse<OAuthClientSecret>> =>
+    api.post(`/oauth-clients/${clientId}/regenerate-secret`),
 }
