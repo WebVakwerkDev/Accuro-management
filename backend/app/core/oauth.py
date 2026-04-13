@@ -16,9 +16,13 @@ _public_key = None
 
 
 def init_rsa_key(pem: str) -> None:
-    """Load RSA keypair from PEM-encoded private key string."""
+    """Load RSA keypair from PEM-encoded private key string.
+
+    Accepts both real newlines and literal \\n sequences (for .env compatibility).
+    """
     global _private_key, _public_key
     from cryptography.hazmat.primitives.serialization import load_pem_private_key
+    pem = pem.replace("\\n", "\n")
     _private_key = load_pem_private_key(pem.encode(), password=None)
     _public_key = _private_key.public_key()
 
